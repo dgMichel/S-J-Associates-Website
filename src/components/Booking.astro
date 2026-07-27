@@ -79,14 +79,18 @@ const { car } = Astro.props;
 </section>
 
 <script>
-  const el = document.getElementById("bookingData") as HTMLDivElement;
-  let pricePerDay = parseInt(el.dataset.price || "0");
-  const carSlug = el.dataset.slug || "";
+  const el = document.getElementById("bookingData") as HTMLDivElement | null;
+  let pricePerDay = 0;
+  const carSlug = el?.dataset.slug || "";
 
   const backendBase = () => {
-    const url = localStorage.getItem("backend_url") || "";
+    const url = typeof window !== "undefined" ? window.localStorage.getItem("backend_url") || "" : "";
     return url.replace(/\/payments\/create-checkout-session$/, "").replace(/\/$/, "") || "http://localhost:8000/api/v1";
   };
+
+  if (el) {
+    pricePerDay = parseInt(el.dataset.price || "0");
+  }
 
   (async () => {
     try {
@@ -104,26 +108,28 @@ const { car } = Astro.props;
   let dayCount = 1;
 
   function isLoggedIn() {
-    return !!localStorage.getItem("access_token");
+    return typeof window !== "undefined" && !!window.localStorage.getItem("access_token");
   }
 
   function getApiToken() {
-    return localStorage.getItem("access_token") || "";
+    return typeof window !== "undefined" ? window.localStorage.getItem("access_token") || "" : "";
   }
 
   function getBackendUrl() {
-    return localStorage.getItem("backend_url") || "http://localhost:8000/api/v1/payments/create-checkout-session";
+    return typeof window !== "undefined"
+      ? window.localStorage.getItem("backend_url") || "http://localhost:8000/api/v1/payments/create-checkout-session"
+      : "http://localhost:8000/api/v1/payments/create-checkout-session";
   }
 
   const startDateInput = document.getElementById("startDateInput") as HTMLInputElement | null;
-  const dayCountEl = document.getElementById("dayCount") as HTMLInputElement;
-  const calcDays = document.getElementById("calcDays") as HTMLSpanElement;
-  const subtotal = document.getElementById("subtotal") as HTMLSpanElement;
-  const total = document.getElementById("total") as HTMLSpanElement;
-  const whatsappBtn = document.getElementById("whatsappBtn") as HTMLAnchorElement;
-  const depositAmtEl = document.getElementById("depositAmt") as HTMLSpanElement;
-  const nationalRadio = document.getElementById("nationalRadio") as HTMLInputElement;
-  const foreignRadio = document.getElementById("foreignRadio") as HTMLInputElement;
+  const dayCountEl = document.getElementById("dayCount") as HTMLInputElement | null;
+  const calcDays = document.getElementById("calcDays") as HTMLSpanElement | null;
+  const subtotal = document.getElementById("subtotal") as HTMLSpanElement | null;
+  const total = document.getElementById("total") as HTMLSpanElement | null;
+  const whatsappBtn = document.getElementById("whatsappBtn") as HTMLAnchorElement | null;
+  const depositAmtEl = document.getElementById("depositAmt") as HTMLSpanElement | null;
+  const nationalRadio = document.getElementById("nationalRadio") as HTMLInputElement | null;
+  const foreignRadio = document.getElementById("foreignRadio") as HTMLInputElement | null;
 
   const DEPOSIT_NATIONAL = 500; // EC$
   const DEPOSIT_FOREIGN = 350; // $
@@ -149,8 +155,10 @@ const { car } = Astro.props;
   }
 
   function updateWhatsappHref() {
-    const brand = el.dataset.brand || "";
-    const model = el.dataset.model || "";
+    if (!whatsappBtn) return;
+
+    const brand = el?.dataset.brand || "";
+    const model = el?.dataset.model || "";
     const carLabel = `${brand} ${model}`.trim();
     const sub = pricePerDay * dayCount;
     const nat = getSelectedNationality();
@@ -170,18 +178,18 @@ const { car } = Astro.props;
   }
 
   function updatePrice() {
-    calcDays.textContent = String(dayCount);
+    if (calcDays) calcDays.textContent = String(dayCount);
     const sub = pricePerDay * dayCount;
     const nat = getSelectedNationality();
     const deposit = getDepositAmount();
 
-    subtotal.textContent = formatPrice(sub);
-    depositAmtEl.textContent = formatDepositLabel();
+    if (subtotal) subtotal.textContent = formatPrice(sub);
+    if (depositAmtEl) depositAmtEl.textContent = formatDepositLabel();
 
     if (nat === "national") {
-      total.textContent = `${formatPrice(sub + deposit)}`;
+      if (total) total.textContent = `${formatPrice(sub + deposit)}`;
     } else {
-      total.textContent = `${formatPrice(sub)} + US$ ${DEPOSIT_FOREIGN}`;
+      if (total) total.textContent = `${formatPrice(sub)} + US$ ${DEPOSIT_FOREIGN}`;
     }
 
     updateWhatsappHref();
@@ -198,34 +206,36 @@ const { car } = Astro.props;
     });
   }
 
-  dayCountEl.addEventListener("input", () => {
-    const rawValue = dayCountEl.value;
+  if (dayCountEl) {
+    dayCountEl.addEventListener("input", () => {
+      const rawValue = dayCountEl.value;
 
-    if (rawValue === "") {
-      dayCount = 1;
+      if (rawValue === "") {
+        dayCount = 1;
+        updatePrice();
+        return;
+      }
+
+      const value = parseInt(rawValue, 10);
+
+      if (isNaN(value) || value < 1) {
+        dayCount = 1;
+      } else {
+        dayCount = value;
+      }
+
+      dayCountEl.value = String(dayCount);
       updatePrice();
-      return;
-    }
+    });
 
-    const value = parseInt(rawValue, 10);
-
-    if (isNaN(value) || value < 1) {
-      dayCount = 1;
-    } else {
-      dayCount = value;
-    }
-
-    dayCountEl.value = String(dayCount);
-    updatePrice();
-  });
-
-  dayCountEl.addEventListener("blur", () => {
-    if (dayCountEl.value.trim() === "") {
-      dayCountEl.value = "1";
-      dayCount = 1;
-      updatePrice();
-    }
-  });
+    dayCountEl.addEventListener("blur", () => {
+      if (dayCountEl.value.trim() === "") {
+        dayCountEl.value = "1";
+        dayCount = 1;
+        updatePrice();
+      }
+    });
+  }
 
   updatePrice();
 
