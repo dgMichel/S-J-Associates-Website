@@ -115,8 +115,9 @@ const { car } = Astro.props;
     return localStorage.getItem("backend_url") || "http://localhost:8000/api/v1/payments/create-checkout-session";
   }
 
-  const startDateInput = document.getElementById("startDateInput") as HTMLInputElement;
-  const dayCountEl = document.getElementById("dayCount") as HTMLInputElement;  const calcDays = document.getElementById("calcDays") as HTMLSpanElement;
+  const startDateInput = document.getElementById("startDateInput") as HTMLInputElement | null;
+  const dayCountEl = document.getElementById("dayCount") as HTMLInputElement;
+  const calcDays = document.getElementById("calcDays") as HTMLSpanElement;
   const subtotal = document.getElementById("subtotal") as HTMLSpanElement;
   const total = document.getElementById("total") as HTMLSpanElement;
   const whatsappBtn = document.getElementById("whatsappBtn") as HTMLAnchorElement;
@@ -151,23 +152,20 @@ const { car } = Astro.props;
     const brand = el.dataset.brand || "";
     const model = el.dataset.model || "";
     const carLabel = `${brand} ${model}`.trim();
-    const dateLabel = startDate ? `from ${startDate}` : "";
     const sub = pricePerDay * dayCount;
     const nat = getSelectedNationality();
     const depositLabel = formatDepositLabel();
     const totalPrice = nat === "national" ? sub + DEPOSIT_NATIONAL : sub + DEPOSIT_FOREIGN;
-    
+    const totalLabel = nat === "national"
+      ? formatPrice(totalPrice)
+      : `${formatPrice(sub)} + US$ ${DEPOSIT_FOREIGN}`;
+
     let message = `Hi, I want to book the ${carLabel}`;
-    if (dateLabel) message += `\n${dateLabel}`;
     message += `\nDays: ${dayCount}`;
     message += `\nSubtotal: ${formatPrice(sub)}`;
     message += `\nSecurity Deposit: ${depositLabel}`;
-    if (nat === "national") {
-      message += `\nTotal: ${formatPrice(totalPrice)}`;
-    } else {
-      message += `\nTotal: ${formatPrice(sub)} + US$ ${DEPOSIT_FOREIGN}`;
-    }
-    
+    message += `\nTotal: ${totalLabel}`;
+
     whatsappBtn.href = `https://wa.me/14734036877?text=${encodeURIComponent(message)}`;
   }
 
@@ -193,182 +191,198 @@ const { car } = Astro.props;
   if (nationalRadio) nationalRadio.addEventListener("change", updatePrice);
   if (foreignRadio) foreignRadio.addEventListener("change", updatePrice);
 
-  startDateInput.addEventListener("change", () => {
-    startDate = startDateInput.value;
+  if (startDateInput) {
+    startDateInput.addEventListener("change", () => {
+      startDate = startDateInput.value;
+      updatePrice();
+    });
+  }
+
+  dayCountEl.addEventListener("input", () => {
+    const rawValue = dayCountEl.value;
+
+    if (rawValue === "") {
+      dayCount = 1;
+      updatePrice();
+      return;
+    }
+
+    const value = parseInt(rawValue, 10);
+
+    if (isNaN(value) || value < 1) {
+      dayCount = 1;
+    } else {
+      dayCount = value;
+    }
+
+    dayCountEl.value = String(dayCount);
     updatePrice();
   });
 
-  dayCountEl.addEventListener("input", () => {
-  let value = parseInt(dayCountEl.value, 10);
-
-  if (isNaN(value) || value < 1) {
-    dayCount = 1;
-  } else {
-    dayCount = value;
-  }
-
-  updatePrice();
-});
-
-dayCountEl.addEventListener("blur", () => {
-  if (dayCountEl.value.trim() === "") {
-    dayCountEl.value = "1";
-    dayCount = 1;
-    updatePrice();
-  }
-});
-
-  updatePrice();
-
-  const calendarEl = document.getElementById("calendar") as HTMLDivElement;
-  let unavailableDates = new Set<string>();
-  let current = new Date();
-  let currentMonth = current.getMonth();
-  let currentYear = current.getFullYear();
-  let selectedDate = "";
-
-  async function fetchUnavailableDates() {
-    try {
-      const res = await fetch(`${backendBase()}/cars/${carSlug}/unavailable`);
-      const data = await res.json();
-      unavailableDates = new Set((data || []).map((d:any) => d.date));
-      renderCalendar(currentMonth, currentYear);
-    } catch (e) {
-      console.warn("Could not load unavailable dates", e);
-      renderCalendar(currentMonth, currentYear);
+  dayCountEl.addEventListener("blur", () => {
+    if (dayCountEl.value.trim() === "") {
+      dayCountEl.value = "1";
+      dayCount = 1;
+      updatePrice();
     }
-  }
+  });
 
-  function formatLocalDate(year:number, month:number, day:number) {
-    const date = new Date(year, month, day);
-    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-  }
+  updatePrice();
 
-  function renderCalendar(month:number, year:number) {
-    const firstDay = new Date(year, month, 1).getDay();
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-   const monthNames = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December"
-];
+  const calendarEl = document.getElementById("calendar") as HTMLDivElement | null;
 
-const weekdayNames = [
-  "Sun",
-  "Mon",
-  "Tue",
-  "Wed",
-  "Thu",
-  "Fri",
-  "Sat"
-];
-    const totalCells = Math.ceil((firstDay + daysInMonth) / 7) * 7;
+  if (calendarEl) {
+    let unavailableDates = new Set<string>();
+    let current = new Date();
+    let currentMonth = current.getMonth();
+    let currentYear = current.getFullYear();
+    let selectedDate = "";
 
-    calendarEl.innerHTML = "";
+    async function fetchUnavailableDates() {
+      try {
+        const res = await fetch(`${backendBase()}/cars/${carSlug}/unavailable`);
+        const data = await res.json();
+        unavailableDates = new Set((data || []).map((d:any) => d.date));
+        renderCalendar(currentMonth, currentYear);
+      } catch (e) {
+        console.warn("Could not load unavailable dates", e);
+        renderCalendar(currentMonth, currentYear);
+      }
+    }
 
-    const header = document.createElement("div");
-    header.className = "calendar-header";
-    header.innerHTML = `
-      <button id="calPrev" class="cal-nav" type="button">◀</button>
-      <div class="cal-title">${monthNames[month]} ${year}</div>
-      <button id="calNext" class="cal-nav" type="button">▶</button>
-    `;
-    calendarEl.appendChild(header);
+    function formatLocalDate(year:number, month:number, day:number) {
+      const date = new Date(year, month, day);
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+    }
 
-    const table = document.createElement("table");
-    table.className = "calendar-table";
+    function renderCalendar(month:number, year:number) {
+      const firstDay = new Date(year, month, 1).getDay();
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      const monthNames = [
+        "January",
+        "February",
+        "March",
+        "April",
+        "May",
+        "June",
+        "July",
+        "August",
+        "September",
+        "October",
+        "November",
+        "December"
+      ];
 
-    const thead = document.createElement("thead");
-    const headRow = document.createElement("tr");
-    weekdayNames.forEach((name) => {
-      const th = document.createElement("th");
-      th.textContent = name;
-      headRow.appendChild(th);
-    });
-    thead.appendChild(headRow);
-    table.appendChild(thead);
+      const weekdayNames = [
+        "Sun",
+        "Mon",
+        "Tue",
+        "Wed",
+        "Thu",
+        "Fri",
+        "Sat"
+      ];
+      const totalCells = Math.ceil((firstDay + daysInMonth) / 7) * 7;
 
-    const tbody = document.createElement("tbody");
-    let dayNumber = 1;
+      calendarEl.innerHTML = "";
 
-    for (let row = 0; row < totalCells / 7; row++) {
-      const tr = document.createElement("tr");
+      const header = document.createElement("div");
+      header.className = "calendar-header";
+      header.innerHTML = `
+        <button id="calPrev" class="cal-nav" type="button">◀</button>
+        <div class="cal-title">${monthNames[month]} ${year}</div>
+        <button id="calNext" class="cal-nav" type="button">▶</button>
+      `;
+      calendarEl.appendChild(header);
 
-      for (let col = 0; col < 7; col++) {
-        const cellIndex = row * 7 + col;
-        const td = document.createElement("td");
-        td.className = "calendar-cell";
+      const table = document.createElement("table");
+      table.className = "calendar-table";
 
-        if (cellIndex < firstDay || dayNumber > daysInMonth) {
-          td.classList.add("empty");
-          tr.appendChild(td);
-          continue;
-        }
+      const thead = document.createElement("thead");
+      const headRow = document.createElement("tr");
+      weekdayNames.forEach((name) => {
+        const th = document.createElement("th");
+        th.textContent = name;
+        headRow.appendChild(th);
+      });
+      thead.appendChild(headRow);
+      table.appendChild(thead);
 
-        const date = new Date(year, month, dayNumber);
-        const iso = formatLocalDate(date.getFullYear(), date.getMonth(), date.getDate());
-        const btn = document.createElement("button");
-        btn.type = "button";
-        btn.className = "day-btn";
-        btn.textContent = String(dayNumber);
+      const tbody = document.createElement("tbody");
+      let dayNumber = 1;
 
-        if (unavailableDates.has(iso)) {
-          btn.classList.add("unavailable");
-          btn.disabled = true;
-        } else {
-          if (startDate && startDate === iso) {
-            btn.classList.add("selected");
+      for (let row = 0; row < totalCells / 7; row++) {
+        const tr = document.createElement("tr");
+
+        for (let col = 0; col < 7; col++) {
+          const cellIndex = row * 7 + col;
+          const td = document.createElement("td");
+          td.className = "calendar-cell";
+
+          if (cellIndex < firstDay || dayNumber > daysInMonth) {
+            td.classList.add("empty");
+            tr.appendChild(td);
+            continue;
           }
-          btn.addEventListener("click", () => {
-            selectedDate = iso;
-            startDateInput.value = iso;
-            startDate = iso;
-            updatePrice();
-            renderCalendar(currentMonth, currentYear);
-          });
+
+          const date = new Date(year, month, dayNumber);
+          const iso = formatLocalDate(date.getFullYear(), date.getMonth(), date.getDate());
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "day-btn";
+          btn.textContent = String(dayNumber);
+
+          if (unavailableDates.has(iso)) {
+            btn.classList.add("unavailable");
+            btn.disabled = true;
+          } else {
+            if (startDate && startDate === iso) {
+              btn.classList.add("selected");
+            }
+            btn.addEventListener("click", () => {
+              selectedDate = iso;
+              if (startDateInput) {
+                startDateInput.value = iso;
+              }
+              startDate = iso;
+              updatePrice();
+              renderCalendar(currentMonth, currentYear);
+            });
+          }
+
+          td.appendChild(btn);
+          tr.appendChild(td);
+          dayNumber++;
         }
 
-        td.appendChild(btn);
-        tr.appendChild(td);
-        dayNumber++;
+        tbody.appendChild(tr);
       }
 
-      tbody.appendChild(tr);
+      table.appendChild(tbody);
+      calendarEl.appendChild(table);
+
+      (document.getElementById("calPrev") as HTMLButtonElement | null)?.addEventListener("click", () => {
+        currentMonth--;
+        if (currentMonth < 0) {
+          currentMonth = 11;
+          currentYear--;
+        }
+        renderCalendar(currentMonth, currentYear);
+      });
+
+      (document.getElementById("calNext") as HTMLButtonElement | null)?.addEventListener("click", () => {
+        currentMonth++;
+        if (currentMonth > 11) {
+          currentMonth = 0;
+          currentYear++;
+        }
+        renderCalendar(currentMonth, currentYear);
+      });
     }
 
-    table.appendChild(tbody);
-    calendarEl.appendChild(table);
-
-    (document.getElementById("calPrev") as HTMLButtonElement)?.addEventListener("click", () => {
-      currentMonth--;
-      if (currentMonth < 0) {
-        currentMonth = 11;
-        currentYear--;
-      }
-      renderCalendar(currentMonth, currentYear);
-    });
-
-    (document.getElementById("calNext") as HTMLButtonElement)?.addEventListener("click", () => {
-      currentMonth++;
-      if (currentMonth > 11) {
-        currentMonth = 0;
-        currentYear++;
-      }
-      renderCalendar(currentMonth, currentYear);
-    });
+    // initial load
+    fetchUnavailableDates();
   }
-
-  // initial load
-  fetchUnavailableDates();
 </script>
 
 <style>
