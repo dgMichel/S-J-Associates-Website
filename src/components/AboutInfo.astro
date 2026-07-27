@@ -1,0 +1,201 @@
+---
+export interface Props {
+  brand: "suzuki" | "nissan";
+}
+
+const { brand } = Astro.props;
+---
+
+<section id={`about-${brand}`}>
+  <div class="container">
+    <div class="section-header">
+      {brand === "suzuki" ? (
+        <>
+          <h2>About the Suzuki Ignis</h2>
+          <p>A stylish and practical compact SUV designed for city driving and weekend adventures.</p>
+        </>
+      ) : (
+        <>
+          <h2>About the Nissan Cube</h2>
+          <p>A quirky and spacious compact hatchback with iconic boxy design and surprising practicality.</p>
+        </>
+      )}
+    </div>
+
+    <div class="features-grid">
+      {brand === "suzuki" ? (
+        <>
+          <div class="feature-card">
+            <div class="feature-icon">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline>
+              </svg>
+            </div>
+            <h3>Engine & Performance</h3>
+            <p>Powered by a 1.2L DualJet petrol engine producing 82 hp, offering a perfect balance of efficiency and responsive city driving.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 22s-8-4.5-8-11.8A8 8 0 0 1 12 2a8 8 0 0 1 8 8.2c0 7.3-8 11.8-8 11.8z"></path><circle cx="12" cy="10" r="3"></circle>
+              </svg>
+            </div>
+            <h3>Design & Comfort</h3>
+            <p>Bold and modern SUV styling with a raised ground clearance, compact dimensions, and a surprisingly spacious interior for up to 5 passengers.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+              </svg>
+            </div>
+            <h3>Safety & Reliability</h3>
+            <p>Equipped with dual airbags, ABS brakes, and Suzuki's TECT platform for enhanced crash protection. A trusted choice worldwide.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line>
+              </svg>
+            </div>
+            <h3>Fuel Economy</h3>
+            <p>Exceptional fuel efficiency averaging 4.9 L/100 km, making it one of the most economical cars to drive in the city and beyond.</p>
+          </div>
+        </>
+      ) : (
+        <>
+          <div class="feature-card">
+            <div class="feature-icon">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline>
+              </svg>
+            </div>
+            <h3>Engine & Performance</h3>
+            <p>Powered by a 1.5L or 1.6L petrol engine, the Cube delivers a smooth and reliable ride perfect for urban commuting.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 22s-8-4.5-8-11.8A8 8 0 0 1 12 2a8 8 0 0 1 8 8.2c0 7.3-8 11.8-8 11.8z"></path><circle cx="12" cy="10" r="3"></circle>
+              </svg>
+            </div>
+            <h3>Design & Comfort</h3>
+            <p>Iconic asymmetrical rear window and boxy silhouette offer exceptional headroom and a spacious, airy cabin.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+              </svg>
+            </div>
+            <h3>Safety & Reliability</h3>
+            <p>Built with Nissan's reinforced safety cell, front airbags, and side curtain airbags for peace of mind.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line>
+              </svg>
+            </div>
+            <h3>Versatility</h3>
+            <p>Modular rear seats fold flat for cargo, making it as practical as it is distinctive — ideal for everyday errands or road trips.</p>
+          </div>
+        </>
+      )}
+    </div>
+  </div>
+
+</section>
+
+<style>
+  section {
+    padding: 80px 24px;
+    background: #f8fafc;
+  }
+
+  .section-header {
+    text-align: center;
+    margin-bottom: 56px;
+  }
+
+  .section-header h2 {
+    font-size: 36px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    margin-bottom: 12px;
+    color: #0f172a;
+  }
+
+  .section-header p {
+    font-size: 17px;
+    color: #64748b;
+    max-width: 540px;
+    margin: 0 auto;
+  }
+
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 24px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  .feature-card {
+    background: white;
+    border-radius: 20px;
+    padding: 36px 28px;
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+
+  .feature-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.06);
+  }
+
+  .feature-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 14px;
+    background: #eef2f6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 24px;
+    color: #0f172a;
+  }
+
+  .feature-card h3 {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 10px;
+    color: #0f172a;
+  }
+
+  .feature-card p {
+    font-size: 14px;
+    color: #64748b;
+    line-height: 1.7;
+  }
+
+  @media (max-width: 900px) {
+    .features-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  @media (max-width: 600px) {
+    section {
+      padding: 48px 16px;
+    }
+
+    .features-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .section-header h2 {
+      font-size: 28px;
+    }
+  }
+</style>

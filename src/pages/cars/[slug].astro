@@ -1,0 +1,475 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import Header from "../../components/Header.astro";
+import Footer from "../../components/Footer.astro";
+import Booking from "../../components/Booking.astro";
+import { cars } from "../../data/cars";
+
+export function getStaticPaths() {
+  return cars.map((car) => ({
+    params: { slug: car.slug },
+    props: { car },
+  }));
+}
+
+const { car } = Astro.props;
+
+const views = [
+  { key: "front", label: "Front" },
+  { key: "side", label: "Side" },
+  { key: "back", label: "Back" },
+];
+---
+
+<Layout>
+  <Header />
+  <main class="detail-page">
+    <div class="container">
+      <a href="/" class="back-link">&larr; Back to fleet</a>
+
+      <div class="detail-grid">
+        <div class="gallery">
+          <div class="gallery-stage">
+            <div class="main-image">
+              <img
+                src={car.photos.front}
+                alt={`${car.color} ${car.brand} ${car.model}`}
+                width="400"
+                height="300"
+                loading="lazy"
+              />
+            </div>
+            <div class="gallery-floor"></div>
+          </div>
+          <div class="thumbnails">
+            {
+              views.map((view) => (
+                <button class="thumb" data-view={view.key}>
+                  <img
+                    src={car.photos[view.key] || car.photos.front}
+                    alt={`${view.label} view`}
+                    width="100"
+                    height="80"
+                    loading="lazy"
+                  />
+                  <span>{view.label}</span>
+                </button>
+              ))
+            }
+          </div>
+        </div>
+
+        <div class="info">
+          <div class="info-header">
+            <h1>{car.color} {car.brand} {car.model}</h1>
+            <span class="plate">{car.plate}</span>
+          </div>
+
+          <p class="description">{car.description}</p>
+
+          <div class="specs">
+            <h3>Specifications</h3>
+            <div class="specs-grid">
+              <div class="spec-item">
+                <span class="spec-label">Year</span>
+                <span class="spec-value">{car.year}</span>
+              </div>
+              <div class="spec-item">
+                <span class="spec-label">Engine</span>
+                <span class="spec-value">{car.specs.engine}</span>
+              </div>
+              <div class="spec-item">
+                <span class="spec-label">Transmission</span>
+                <span class="spec-value">{car.specs.transmission}</span>
+              </div>
+              <div class="spec-item">
+                <span class="spec-label">Fuel</span>
+                <span class="spec-value">{car.specs.fuel}</span>
+              </div>
+              <div class="spec-item">
+                <span class="spec-label">Seats</span>
+                <span class="spec-value">{car.specs.seats}</span>
+              </div>
+              <div class="spec-item">
+                <span class="spec-label">Doors</span>
+                <span class="spec-value">{car.specs.doors}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="features">
+            <h3>Features</h3>
+            <div class="features-list">
+              {car.features.map((f) => <span class="feature-tag">{f}</span>)}
+            </div>
+          </div>
+
+         <div class="price-box">
+  <div class="price-main">
+    <div>
+      <span class="price-amount">EC${car.pricePerDay}</span>
+      <span class="price-period">per day</span>
+    </div>
+  </div>
+
+  <div class="security-deposit">
+    <div class="deposit-header">
+      <span class="deposit-icon">🔒</span>
+      <h4>Refundable Security Deposit</h4>
+    </div>
+    <ul class="deposit-list">
+      <li>EC$500 for local residents</li>
+      <li>US$350 for international visitors</li>
+    </ul>
+    <p class="deposit-note">
+      The security deposit is fully refundable upon return of the vehicle,
+      provided it is returned in the same condition and no additional charges
+      apply.
+    </p>
+  </div>
+
+  <p class="price-note">
+    Long-term rentals are available at discounted rates. Contact us for a personalized quote.
+  </p>
+</div>
+          <Booking car={car} />
+        </div>
+      </div>
+    </div>
+  </main>
+  <Footer />
+</Layout>
+
+<style>
+  .detail-page {
+    padding: 48px 24px;
+    min-height: 80vh;
+  }
+
+  .detail-page .container {
+    padding: 0;
+  }
+
+  .back-link {
+    display: inline-flex;
+    align-items: center;
+    font-size: 14px;
+    font-weight: 500;
+    color: #64748b;
+    margin-bottom: 32px;
+    transition: color 0.2s;
+  }
+
+  .back-link:hover {
+    color: #0f172a;
+  }
+
+  .detail-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 48px;
+    align-items: start;
+  }
+
+  .gallery {
+    position: sticky;
+    top: 88px;
+  }
+
+  .gallery-stage {
+    background: #f1f5f9;
+    border-radius: 20px;
+    padding: 32px 24px 16px;
+    margin-bottom: 12px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .gallery-floor {
+    width: 60%;
+    height: 3px;
+    background: rgba(0, 0, 0, 0.08);
+    border-radius: 50%;
+    filter: blur(3px);
+    margin-top: 8px;
+  }
+
+  .main-image {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .main-image img {
+    width: 100%;
+    height: auto;
+    max-height: 320px;
+    object-fit: contain;
+    filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.08));
+  }
+
+  .thumbnails {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+
+  .thumb {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    background: #f8fafc;
+    border: 2px solid transparent;
+    border-radius: 12px;
+    padding: 12px 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+    font-size: 11px;
+    color: #94a3b8;
+  }
+
+  .thumb:hover,
+  .thumb.active {
+    border-color: #0f172a;
+    background: white;
+  }
+
+  .thumb img {
+    width: 100%;
+    height: 80px;
+    object-fit: contain;
+  }
+
+  .info-header {
+    margin-bottom: 20px;
+  }
+
+  .info-header h1 {
+    font-size: 32px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    margin-bottom: 6px;
+    color: #0f172a;
+  }
+
+  .plate {
+    font-size: 14px;
+    color: #94a3b8;
+    font-weight: 500;
+  }
+
+  .description {
+    font-size: 15px;
+    color: #64748b;
+    line-height: 1.7;
+    margin-bottom: 32px;
+  }
+
+  .specs {
+    margin-bottom: 24px;
+  }
+
+  .specs h3 {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 16px;
+    color: #0f172a;
+  }
+
+  .specs-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  .spec-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: #f8fafc;
+    border-radius: 8px;
+    font-size: 13px;
+  }
+
+  .spec-label {
+    color: #94a3b8;
+  }
+
+  .spec-value {
+    font-weight: 600;
+    color: #0f172a;
+  }
+
+  .features {
+    margin-bottom: 32px;
+  }
+
+  .features h3 {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 16px;
+    color: #0f172a;
+  }
+
+  .features-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .feature-tag {
+    padding: 6px 14px;
+    background: #eef2f6;
+    border-radius: 20px;
+    font-size: 13px;
+    color: #0f172a;
+    font-weight: 500;
+  }
+
+  .price-box {
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    border-radius: 16px;
+    padding: 22px 24px;
+    margin-bottom: 32px;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.05);
+  }
+
+  .price-main {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+
+  .price-amount {
+    font-size: 36px;
+    font-weight: 700;
+    letter-spacing: -1px;
+    color: #0f172a;
+  }
+
+  .price-period {
+    font-size: 14px;
+    color: #94a3b8;
+    margin-left: 6px;
+  }
+
+  .price-badge {
+    background: #0f172a;
+    color: white;
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .security-deposit {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 14px;
+  }
+
+  .deposit-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .deposit-icon {
+    font-size: 16px;
+  }
+
+  .security-deposit h4 {
+    font-size: 15px;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0;
+  }
+
+  .deposit-list {
+    margin: 0 0 10px 18px;
+    padding: 0;
+    color: #475569;
+    font-size: 14px;
+    line-height: 1.7;
+  }
+
+  .deposit-note {
+    margin: 0;
+    font-size: 13px;
+    color: #64748b;
+    line-height: 1.6;
+  }
+
+  .price-note {
+    font-size: 13px;
+    color: #94a3b8;
+    margin: 0;
+  }
+
+  @media (max-width: 768px) {
+    .detail-page {
+      padding: 32px 16px;
+    }
+
+    .detail-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .gallery {
+      position: static;
+    }
+
+    .gallery-stage {
+      padding: 24px 16px 16px;
+    }
+
+    .main-image img {
+      max-height: 240px;
+    }
+
+    .info-header h1 {
+      font-size: 24px;
+    }
+
+    .specs-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .thumbnails {
+      grid-template-columns: repeat(3, 1fr);
+    }
+
+    .thumb img {
+      height: 60px;
+    }
+  }
+</style>
+
+<script>
+  const mainImg = document.querySelector<HTMLImageElement>(".main-image img");
+  const thumbs = document.querySelectorAll<HTMLButtonElement>(".thumb");
+
+  thumbs.forEach((thumb) => {
+    thumb.addEventListener("click", () => {
+      const img = thumb.querySelector<HTMLImageElement>("img");
+      if (img?.src && mainImg) mainImg.src = img.src;
+
+      thumbs.forEach((t) => t.classList.remove("active"));
+      thumb.classList.add("active");
+    });
+  });
+</script>

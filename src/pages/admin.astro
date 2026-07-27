@@ -1,0 +1,588 @@
+---
+import Layout from "../layouts/Layout.astro";
+---
+
+<Layout>
+  <main class="admin-page">
+    <div class="admin-container">
+      <div class="admin-header">
+        <a href="/" class="back-link">&larr; Back to site</a>
+        <h1>Admin Panel</h1>
+        <p class="subtitle">Configure backend API, Stripe payments & user accounts</p>
+      </div>
+
+      <div class="admin-card">
+        <h2>Backend Configuration</h2>
+        <p class="field-desc">
+          Enter the URL of your backend API that handles bookings and payments.
+        </p>
+
+        <div class="form-group">
+          <label for="backendUrl">Backend URL</label>
+          <input
+            type="url"
+            id="backendUrl"
+            placeholder="http://localhost:8000/api/v1/payments/create-checkout-session"
+            class="admin-input"
+          />
+          <span class="field-hint">Full URL to the create-checkout-session endpoint</span>
+        </div>
+
+        <button id="saveBtn" class="save-btn">Save Settings</button>
+        <p id="saveMsg" class="save-msg" style="display:none"></p>
+      </div>
+
+      <div class="admin-card" id="stripeCard">
+        <h2>Stripe Connect</h2>
+        <p class="field-desc">
+          Connect your Stripe account to start receiving payments. Your API keys stay
+          with Stripe &mdash; you just need to authorize this platform via Stripe's secure
+          onboarding flow.
+        </p>
+
+        <div id="stripeStatus" class="stripe-status">
+          <div class="status-row">
+            <span class="status-label">Status:</span>
+            <span id="stripeConnected" class="status-badge status-disconnected">Disconnected</span>
+          </div>
+          <div id="stripeDetails" style="display:none">
+            <div class="status-row">
+              <span class="status-label">Account:</span>
+              <span id="stripeEmail" class="status-value"></span>
+            </div>
+            <div class="status-row">
+              <span class="status-label">Charges:</span>
+              <span id="stripeCharges" class="status-value"></span>
+            </div>
+          </div>
+        </div>
+
+        <button id="connectStripeBtn" class="save-btn stripe-btn">Connect with Stripe</button>
+        <p id="stripeMsg" class="save-msg" style="display:none"></p>
+      </div>
+
+      <div class="admin-card" id="carsCard">
+        <h2>Car Prices</h2>
+        <p class="field-desc">Update rental prices or add new vehicles.</p>
+
+        <div id="carsTable" class="cars-table">
+          <div class="cars-loading">Loading cars...</div>
+        </div>
+        <p id="carsMsg" class="save-msg" style="display:none"></p>
+      </div>
+
+      <div class="admin-card">
+        <h2>Expected API Response</h2>
+        <p class="field-desc">
+          Your backend should accept a <code>POST</code> request and return the Stripe
+          Checkout URL:
+        </p>
+        <pre class="code-block">{`{
+  "url": "https://checkout.stripe.com/c/pay/..."
+}`}</pre>
+        <p class="field-desc" style="margin-top:12px">
+          On success, the frontend redirects to that URL. After payment, Stripe redirects
+          to <code>/booking-confirmed</code>.
+        </p>
+      </div>
+    </div>
+  </main>
+</Layout>
+
+<script>
+  (() => {
+  const urlInput = document.getElementById("backendUrl") as HTMLInputElement;
+  const saveBtn = document.getElementById("saveBtn") as HTMLButtonElement;
+  const saveMsg = document.getElementById("saveMsg") as HTMLParagraphElement;
+
+  const connectBtn = document.getElementById("connectStripeBtn") as HTMLButtonElement;
+  const stripeMsg = document.getElementById("stripeMsg") as HTMLParagraphElement;
+  const stripeConnected = document.getElementById("stripeConnected") as HTMLSpanElement;
+  const stripeEmail = document.getElementById("stripeEmail") as HTMLSpanElement;
+  const stripeCharges = document.getElementById("stripeCharges") as HTMLSpanElement;
+  const stripeDetails = document.getElementById("stripeDetails") as HTMLDivElement;
+
+  const backendBase = () => {
+    const full = urlInput.value.trim();
+    return full.replace(/\/payments\/create-checkout-session$/, "").replace(/\/$/, "") || "http://localhost:8000/api/v1";
+  };
+
+  const tokenPayload = (() => {
+    try { return JSON.parse(atob((localStorage.getItem("access_token") || "").split(".")[1])); }
+    catch { return null; }
+  })();
+  if (!tokenPayload || tokenPayload.role !== "admin") {
+    const main = document.querySelector("main") as HTMLElement;
+    main.innerHTML = `<div style="min-height:80vh;display:flex;align-items:center;justify-content:center"><div style="text-align:center;max-width:400px"><h1 style="font-size:24px;font-weight:700;color:#0f172a;margin-bottom:8px">Access Denied</h1><p style="color:#64748b;margin-bottom:24px">You need admin privileges to access this page.</p><a href="/" style="display:inline-block;padding:12px 28px;background:#0f172a;color:white;border-radius:10px;font-weight:600;text-decoration:none">Go Home</a></div></div>`;
+    return;
+  }
+
+  urlInput.value = localStorage.getItem("backend_url") || "";
+
+  saveBtn.addEventListener("click", () => {
+    localStorage.setItem("backend_url", urlInput.value.trim());
+    saveMsg.textContent = "Settings saved successfully!";
+    saveMsg.style.display = "block";
+    saveMsg.style.color = "#16a34a";
+    setTimeout(() => { saveMsg.style.display = "none"; }, 3000);
+  });
+
+  async function checkStripeStatus() {
+    try {
+      const res = await fetch(`${backendBase()}/payments/connect/status`);
+      const data = await res.json();
+      if (data.connected) {
+        stripeConnected.textContent = "Connected";
+        stripeConnected.className = "status-badge status-connected";
+        stripeDetails.style.display = "block";
+        stripeEmail.textContent = data.email || "—";
+        stripeCharges.textContent = data.charges_enabled ? "Enabled" : "Pending";
+        connectBtn.textContent = "Reconnect Stripe";
+      } else {
+        stripeConnected.textContent = "Disconnected";
+        stripeConnected.className = "status-badge status-disconnected";
+        stripeDetails.style.display = "none";
+        connectBtn.textContent = "Connect with Stripe";
+      }
+    } catch {
+      stripeConnected.textContent = "Backend unreachable";
+      stripeConnected.className = "status-badge status-error";
+    }
+  }
+
+  connectBtn.addEventListener("click", async () => {
+    stripeMsg.style.display = "none";
+    connectBtn.disabled = true;
+    connectBtn.textContent = "Connecting...";
+    try {
+      const res = await fetch(`${backendBase()}/payments/connect/url`);
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        stripeMsg.textContent = "Stripe Connect is not configured on the backend.";
+        stripeMsg.style.display = "block";
+        stripeMsg.style.color = "#dc2626";
+        connectBtn.disabled = false;
+        connectBtn.textContent = "Connect with Stripe";
+      }
+    } catch {
+      stripeMsg.textContent = "Could not reach the backend server.";
+      stripeMsg.style.display = "block";
+      stripeMsg.style.color = "#dc2626";
+      connectBtn.disabled = false;
+      connectBtn.textContent = "Connect with Stripe";
+    }
+  });
+
+  if (window.location.search.includes("stripe=callback")) {
+    const code = new URLSearchParams(window.location.search).get("code");
+    if (code) {
+      (async () => {
+        stripeMsg.textContent = "Completing Stripe connection...";
+        stripeMsg.style.display = "block";
+        stripeMsg.style.color = "#2563eb";
+        try {
+          const res = await fetch(`${backendBase()}/payments/connect/callback?code=${code}`);
+          const data = await res.json();
+          if (data.status === "connected") {
+            stripeMsg.textContent = "Stripe connected successfully!";
+            stripeMsg.style.color = "#16a34a";
+            checkStripeStatus();
+            window.history.replaceState({}, "", "/admin");
+          } else {
+            stripeMsg.textContent = data.detail || "Connection failed.";
+            stripeMsg.style.color = "#dc2626";
+          }
+        } catch {
+          stripeMsg.textContent = "Could not complete Stripe connection.";
+          stripeMsg.style.color = "#dc2626";
+        }
+      })();
+    }
+  }
+
+  checkStripeStatus();
+
+  async function loadCars() {
+    const table = document.getElementById("carsTable") as HTMLDivElement;
+    const msg = document.getElementById("carsMsg") as HTMLParagraphElement;
+    try {
+      const res = await fetch(`${backendBase()}/cars`);
+      const cars = await res.json();
+      table.innerHTML = `<div class="cars-header"><span class="car-cell car-cell--wide">Car</span><span class="car-cell">Price/day</span><span class="car-cell">Status</span><span class="car-cell car-cell--action"></span></div>` +
+        cars.map((c: {slug:string; brand:string; model:string; color:string; plate:string; price_per_day:number; available:boolean}) =>
+          `<div class="car-row" data-slug="${c.slug}">
+            <span class="car-cell car-cell--wide">${c.brand} ${c.model} — ${c.color} (${c.plate})</span>
+            <span class="car-cell"><input type="number" class="price-input" value="${c.price_per_day}" min="0" step="1" /></span>
+            <span class="car-cell"><select class="avail-select"><option value="true" ${c.available ? "selected" : ""}>Available</option><option value="false" ${!c.available ? "selected" : ""}>Unavailable</option></select></span>
+            <span class="car-cell car-cell--action"><button class="car-save-btn">Save</button> <button class="car-avail-btn">Manage availability</button></span>
+          </div>`
+        ).join("");
+      table.querySelectorAll(".car-save-btn").forEach((btn) =>
+        btn.addEventListener("click", async () => {
+          const row = (btn as HTMLElement).closest(".car-row") as HTMLElement;
+          const slug = row.dataset.slug!;
+          const price = parseFloat((row.querySelector(".price-input") as HTMLInputElement).value);
+          const available = (row.querySelector(".avail-select") as HTMLSelectElement).value === "true";
+          msg.style.display = "none";
+          (btn as HTMLButtonElement).disabled = true;
+          (btn as HTMLButtonElement).textContent = "Saving...";
+          try {
+            const token = localStorage.getItem("access_token") || "";
+            const r = await fetch(`${backendBase()}/cars/${slug}`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+              body: JSON.stringify({ price_per_day: price, available }),
+            });
+            if (!r.ok) throw new Error();
+            msg.textContent = "Price updated!";
+            msg.style.color = "#16a34a";
+            msg.style.display = "block";
+          } catch {
+            msg.textContent = "Failed to update";
+            msg.style.color = "#dc2626";
+            msg.style.display = "block";
+          }
+          (btn as HTMLButtonElement).disabled = false;
+          (btn as HTMLButtonElement).textContent = "Save";
+          setTimeout(() => { msg.style.display = "none"; }, 3000);
+        })
+      );
+
+      // Manage availability buttons
+      table.querySelectorAll(".car-avail-btn").forEach((btn) =>
+        btn.addEventListener("click", async () => {
+          const row = (btn as HTMLElement).closest(".car-row") as HTMLElement;
+          const slug = row.dataset.slug!;
+          const date = prompt("Enter date to toggle unavailable (YYYY-MM-DD):");
+          if (!date) return;
+          try {
+            const token = localStorage.getItem("access_token") || "";
+            // load existing
+            const resDates = await fetch(`${backendBase()}/cars/${slug}/unavailable`);
+            const list = await resDates.json();
+            const exists = list.some((d: any) => d.date === date);
+            if (exists) {
+              await fetch(`${backendBase()}/cars/${slug}/unavailable/${date}`, { method: "DELETE", headers: { "Authorization": `Bearer ${token}` } });
+              alert("Date removed from unavailable list");
+            } else {
+              const r = await fetch(`${backendBase()}/cars/${slug}/unavailable`, { method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` }, body: JSON.stringify({ date }) });
+              if (!r.ok) throw new Error();
+              alert("Date added as unavailable");
+            }
+            loadCars();
+          } catch {
+            alert("Failed to update availability. Check backend or permissions.");
+          }
+        })
+      );
+    } catch {
+      table.innerHTML = `<p style="color:#dc2626;font-size:14px">Could not load cars.</p>`;
+    }
+  }
+
+  loadCars();
+  })();
+</script>
+
+<style>
+  .admin-page {
+    min-height: 100vh;
+    padding: 48px 24px;
+  }
+
+  .admin-container {
+    max-width: 640px;
+    margin: 0 auto;
+  }
+
+  .admin-header {
+    margin-bottom: 40px;
+  }
+
+  .back-link {
+    display: inline-flex;
+    align-items: center;
+    font-size: 14px;
+    font-weight: 500;
+    color: #64748b;
+    margin-bottom: 24px;
+    transition: color 0.2s;
+  }
+
+  .back-link:hover {
+    color: #0f172a;
+  }
+
+  .admin-header h1 {
+    font-size: 32px;
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 6px;
+  }
+
+  .subtitle {
+    font-size: 15px;
+    color: #64748b;
+  }
+
+  .admin-card {
+    background: white;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    border-radius: 16px;
+    padding: 32px;
+    margin-bottom: 24px;
+  }
+
+  .admin-card h2 {
+    font-size: 20px;
+    font-weight: 600;
+    margin-bottom: 12px;
+    color: #0f172a;
+  }
+
+  .field-desc {
+    font-size: 14px;
+    color: #64748b;
+    margin-bottom: 24px;
+    line-height: 1.6;
+  }
+
+  .form-group {
+    margin-bottom: 20px;
+  }
+
+  .form-group label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: #0f172a;
+    margin-bottom: 6px;
+  }
+
+  .admin-input {
+    width: 100%;
+    padding: 12px 16px;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    font-size: 15px;
+    font-family: inherit;
+    transition: border-color 0.2s;
+    outline: none;
+    box-sizing: border-box;
+  }
+
+  .admin-input:focus {
+    border-color: #0f172a;
+  }
+
+  .field-hint {
+    display: block;
+    margin-top: 4px;
+    font-size: 12px;
+    color: #94a3b8;
+  }
+
+  .save-btn {
+    width: 100%;
+    padding: 14px;
+    background: #0f172a;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+    margin-top: 8px;
+    font-family: inherit;
+  }
+
+  .save-btn:hover {
+    background: #1e293b;
+  }
+
+  .save-btn:disabled {
+    background: #94a3b8;
+    cursor: not-allowed;
+  }
+
+  .stripe-btn {
+    background: #635bff;
+    margin-top: 16px;
+  }
+
+  .stripe-btn:hover {
+    background: #4f46e5;
+  }
+
+  .save-msg {
+    text-align: center;
+    margin-top: 12px;
+    font-size: 14px;
+    font-weight: 500;
+  }
+
+  .stripe-status {
+    background: #f8fafc;
+    border-radius: 10px;
+    padding: 16px;
+  }
+
+  .status-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    font-size: 14px;
+  }
+
+  .status-label {
+    color: #64748b;
+    font-weight: 500;
+  }
+
+  .status-value {
+    color: #0f172a;
+  }
+
+  .status-badge {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .status-connected {
+    background: #f0fdf4;
+    color: #16a34a;
+  }
+
+  .status-disconnected {
+    background: #fef2f2;
+    color: #dc2626;
+  }
+
+  .status-error {
+    background: #fef2f2;
+    color: #dc2626;
+  }
+
+  .cars-table {
+    background: #f8fafc;
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .cars-loading {
+    padding: 24px;
+    text-align: center;
+    font-size: 14px;
+    color: #94a3b8;
+  }
+
+  .cars-header,
+  .car-row {
+    display: grid;
+    grid-template-columns: 1fr 100px 120px 80px;
+    gap: 8px;
+    align-items: center;
+    padding: 12px 16px;
+    font-size: 14px;
+  }
+
+  .cars-header {
+    font-weight: 600;
+    color: #64748b;
+    background: #f1f5f9;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .car-row {
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .car-row:last-child {
+    border-bottom: none;
+  }
+
+  .car-cell {
+    color: #0f172a;
+  }
+
+  .car-cell--wide {
+    font-weight: 500;
+  }
+
+  .car-cell--action {
+    text-align: right;
+  }
+
+  .price-input {
+    width: 80px;
+    padding: 6px 10px;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    font-size: 14px;
+    font-family: inherit;
+    outline: none;
+  }
+
+  .price-input:focus {
+    border-color: #0f172a;
+  }
+
+  .avail-select {
+    padding: 6px 8px;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    font-size: 13px;
+    font-family: inherit;
+    outline: none;
+    background: white;
+  }
+
+  .car-save-btn {
+    padding: 6px 14px;
+    background: #0f172a;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: inherit;
+  }
+
+  .car-save-btn:hover {
+    background: #1e293b;
+  }
+
+  .car-save-btn:disabled {
+    background: #94a3b8;
+    cursor: not-allowed;
+  }
+
+  .code-block {
+    background: #f1f5f9;
+    border-radius: 10px;
+    padding: 16px 20px;
+    font-size: 13px;
+    overflow-x: auto;
+    white-space: pre;
+    font-family: "SF Mono", "Fira Code", monospace;
+    color: #0f172a;
+    line-height: 1.6;
+  }
+
+  @media (max-width: 768px) {
+    .admin-page {
+      padding: 32px 16px;
+    }
+
+    .admin-card {
+      padding: 24px 20px;
+    }
+  }
+</style>

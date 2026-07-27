@@ -1,0 +1,195 @@
+---
+import logoSvg from "../assets/file-1.svg";
+import { Image } from "astro:assets";
+const phone = import.meta.env.PHONE || "+1 (473) 404-6549";
+const email = import.meta.env.EMAIL || "dagab211@gmail.com";
+---
+
+<footer id="contact">
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-brand">
+  <a href="/" class="logo">
+    <Image
+      src={logoSvg}
+      alt="SJ & Associates"
+      width="300"
+      height="300"
+      loading="eager"
+      fetchpriority="high"
+    />
+  </a>
+
+  <div class="footer-brand-text">
+    <h3>SJ & Associates</h3>
+    <p>
+      Your trusted partner for reliable car rental services in Grenada
+    </p>
+  </div>
+</div>
+      <div class="footer-links">
+        <h4>Quick Links</h4>
+        <a href="/#suzuki">Suzuki Ignis</a>
+        <a href="/#nissan">Nissan Cube</a>
+      </div>
+      <div class="footer-contact">
+        <h4>Contact</h4>
+        <p>
+          <a href="mailto:info@sj-associates.com">{email}</a>
+        </p>
+        <p><a href="tel:+1 (473) 404-6549">{phone}</a></p>
+        <p>
+          <a
+            class="whatsapp-btn"
+            href="https://wa.me/14734036877?text=Hello%20I%20would%20like%20to%20contact%20you%20via%20WhatsApp"            target="_blank"
+            rel="noreferrer noopener"
+          >
+            Contact via WhatsApp
+          </a>
+        </p>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>
+        &copy; {new Date().getFullYear()} SJ & Associates. All rights reserved.
+      </p>
+    </div>
+  </div>
+</footer>
+
+<style>
+  
+  footer {
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+    color: white;
+    padding: 72px 0 32px;
+  }
+  .footer-brand {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.footer-brand-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.footer-brand-text h3 {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  margin: 0 0 10px;
+}
+
+.footer-brand-text p {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.5);
+  line-height: 1.7;
+  margin: 0;
+  max-width: 260px;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.logo img {
+  width: 140px;
+  height: 140px;
+  object-fit: contain;
+  border-radius: 50%;
+}
+  .footer-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr;
+    gap: 48px;
+    margin-bottom: 48px;
+    padding: 0 24px;
+  }
+  .footer-links h4,
+  .footer-contact h4,
+  .footer-hours h4 {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: rgba(255, 255, 255, 0.35);
+    margin-bottom: 20px;
+  }
+
+  .footer-links a {
+    display: block;
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.6);
+    margin-bottom: 12px;
+    transition: color 0.2s;
+  }
+
+  .footer-links a:hover {
+    color: white;
+  }
+
+  .footer-contact p,
+  .footer-hours p {
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.6);
+    margin-bottom: 8px;
+  }
+
+  .footer-contact a {
+    color: rgba(255, 255, 255, 0.6);
+    transition: color 0.2s;
+  }
+
+  .footer-contact a:hover {
+    color: white;
+  }
+
+  .whatsapp-btn {
+    display: inline-flex;
+    align-items: center;
+    padding: 10px 14px;
+    border-radius: 999px;
+    background-color: #25d366;
+    color: #0f172a;
+    font-weight: 700;
+    text-decoration: none;
+    transition: transform 0.2s, background-color 0.2s;
+  }
+
+  .whatsapp-btn:hover {
+    transform: translateY(-1px);
+    background-color: #22c65b;
+  }
+
+  .footer-bottom {
+    padding-top: 28px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    text-align: center;
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+
+  .footer-bottom p {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.35);
+  }
+
+  @media (max-width: 900px) {
+    .footer-grid {
+      grid-template-columns: 1fr 1fr;
+      gap: 36px;
+    }
+  }
+
+  @media (max-width: 600px) {
+    .footer-grid {
+      grid-template-columns: 1fr;
+      gap: 28px;
+    }
+  }
+</style>

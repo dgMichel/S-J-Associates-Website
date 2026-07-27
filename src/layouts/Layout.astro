@@ -1,0 +1,99 @@
+---
+import Analytics from "@vercel/analytics/astro";
+import SpeedInsights from "@vercel/speed-insights/astro";
+---
+
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="src/assets/file-1.svg" />
+    <meta name="generator" content={Astro.generator} />
+    <title>SJ & Associates - Premium Car Rental</title>
+    <meta
+      name="description"
+      content="SJ & Associates offers Suzuki Ignis and Nissan Cube car rentals. Reliable vehicles, transparent pricing, and exceptional service."
+    />
+    <meta
+      name="keywords"
+      content="car rental, rent a car, Suzuki Ignis, Nissan Cube, vehicle rental"
+    />
+    <meta name="robots" content="index, follow" />
+    <meta property="og:title" content="SJ & Associates - Premium Car Rental" />
+    <meta
+      property="og:description"
+      content="Reliable vehicles, transparent pricing, and exceptional service."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="en_US" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <slot />
+    <Analytics />
+    <SpeedInsights />
+  </body>
+</html>
+
+<style>
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  ::-webkit-scrollbar {
+    display: none;
+  }
+
+  body {
+    font-family:
+      "Inter",
+      system-ui,
+      -apple-system,
+      sans-serif;
+    background: #f1f5f9;
+    color: #0f172a;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+
+  img {
+    max-width: 100%;
+    height: auto;
+  }
+
+  a {
+    text-decoration: none;
+    color: inherit;
+  }
+
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  section {
+    padding: 80px 0;
+  }
+
+  @media (max-width: 768px) {
+    section {
+      padding: 48px 0;
+    }
+  }
+</style>

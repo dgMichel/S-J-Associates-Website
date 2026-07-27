@@ -1,0 +1,674 @@
+---
+import type { Car } from "../data/cars";
+
+export interface Props {
+  car: Car;
+}
+
+const { car } = Astro.props;
+---
+
+<section class="booking-section" id="booking">
+  <div class="booking-container">
+    <div class="booking-header">
+      <h2>Book via WhatsApp</h2>
+      <p class="booking-subtitle">
+        Send your booking request via WhatsApp
+      </p>
+    </div>
+
+    <div class="booking-form">
+      {/* <div class="form-group">
+        <label for="startDateInput">Check-in Date</label>
+        <input type="hidden" id="startDateInput" />
+        <div id="calendar" class="calendar"></div>
+      </div> */}
+
+      <div class="days-selector">
+  <label for="dayCount">Number of days</label>
+
+  <input
+    id="dayCount"
+    class="days-input"
+    type="number"
+    min="1"
+    placeholder="1"
+    inputmode="numeric"
+  />
+</div>
+
+            <div class="days-selector deposit-selector">
+              <label>Client type</label>
+              <div class="deposit-options">
+                <label><input type="radio" name="nationality" id="nationalRadio" value="national" checked /> National (EC$ 500)</label>
+                <label><input type="radio" name="nationality" id="foreignRadio" value="foreign" /> Foreign (US$350)</label>
+              </div>
+            </div>
+
+      <div class="price-breakdown">
+        <div class="price-row">
+          <span>EC$ {car.pricePerDay} &times; <span id="calcDays">1</span> day(s)</span>
+          <span id="subtotal">EC$ {car.pricePerDay}</span>
+        </div>
+        <div class="price-row deposit-row">
+          <span>Security Deposit</span>
+          <span id="depositAmt">EC$ 500</span>
+        </div>
+        <div class="price-row total">
+          <span>Total</span>
+          <span id="total">EC$ {car.pricePerDay} + Security Deposit</span>
+        </div>
+      </div>
+
+      <a
+        id="whatsappBtn"
+        class="pay-btn whatsapp-btn"
+        href={
+          `https://wa.me/14734036877?text=${encodeURIComponent(
+            `Hola, quiero reservar el auto ${car.brand} ${car.model}`
+          )}`
+        }
+        target="_blank"
+        rel="noreferrer noopener"
+      >
+        Contact via WhatsApp
+      </a>
+    </div>
+  </div>
+  <div id="bookingData" data-slug={car.slug} data-price={car.pricePerDay} data-brand={car.brand} data-model={car.model} style="display:none"></div>
+</section>
+
+<script>
+  const el = document.getElementById("bookingData") as HTMLDivElement;
+  let pricePerDay = parseInt(el.dataset.price || "0");
+  const carSlug = el.dataset.slug || "";
+
+  const backendBase = () => {
+    const url = localStorage.getItem("backend_url") || "";
+    return url.replace(/\/payments\/create-checkout-session$/, "").replace(/\/$/, "") || "http://localhost:8000/api/v1";
+  };
+
+  (async () => {
+    try {
+      const res = await fetch(`${backendBase()}/cars/${carSlug}`);
+      const data = await res.json();
+      if (data.price_per_day) {
+        pricePerDay = data.price_per_day;
+        document.querySelectorAll("[data-price]").forEach(el => (el as HTMLElement).dataset.price = String(data.price_per_day));
+        updatePrice();
+      }
+    } catch {}
+  })();
+
+  let startDate: string = "";
+  let dayCount = 1;
+
+  function isLoggedIn() {
+    return !!localStorage.getItem("access_token");
+  }
+
+  function getApiToken() {
+    return localStorage.getItem("access_token") || "";
+  }
+
+  function getBackendUrl() {
+    return localStorage.getItem("backend_url") || "http://localhost:8000/api/v1/payments/create-checkout-session";
+  }
+
+  const startDateInput = document.getElementById("startDateInput") as HTMLInputElement;
+  const dayCountEl = document.getElementById("dayCount") as HTMLInputElement;  const calcDays = document.getElementById("calcDays") as HTMLSpanElement;
+  const subtotal = document.getElementById("subtotal") as HTMLSpanElement;
+  const total = document.getElementById("total") as HTMLSpanElement;
+  const whatsappBtn = document.getElementById("whatsappBtn") as HTMLAnchorElement;
+  const depositAmtEl = document.getElementById("depositAmt") as HTMLSpanElement;
+  const nationalRadio = document.getElementById("nationalRadio") as HTMLInputElement;
+  const foreignRadio = document.getElementById("foreignRadio") as HTMLInputElement;
+
+  const DEPOSIT_NATIONAL = 500; // EC$
+  const DEPOSIT_FOREIGN = 350; // $
+
+  function getSelectedNationality() {
+    return nationalRadio && nationalRadio.checked ? "national" : "foreign";
+  }
+
+  function formatPrice(value: number, currency: "EC$" | "US$" = "EC$") {
+    return `${currency} ${Number(value).toLocaleString()}`;
+  }
+
+  function formatDepositLabel() {
+    const nat = getSelectedNationality();
+    if (nat === "national") return `EC$ ${DEPOSIT_NATIONAL}`;
+    return `US$ ${DEPOSIT_FOREIGN}`;
+  }
+
+  function getDepositAmount() {
+    const nat = getSelectedNationality();
+    if (nat === "national") return DEPOSIT_NATIONAL;
+    return DEPOSIT_FOREIGN;
+  }
+
+  function updateWhatsappHref() {
+    const brand = el.dataset.brand || "";
+    const model = el.dataset.model || "";
+    const carLabel = `${brand} ${model}`.trim();
+    const dateLabel = startDate ? `from ${startDate}` : "";
+    const sub = pricePerDay * dayCount;
+    const nat = getSelectedNationality();
+    const depositLabel = formatDepositLabel();
+    const totalPrice = nat === "national" ? sub + DEPOSIT_NATIONAL : sub + DEPOSIT_FOREIGN;
+    
+    let message = `Hi, I want to book the ${carLabel}`;
+    if (dateLabel) message += `\n${dateLabel}`;
+    message += `\nDays: ${dayCount}`;
+    message += `\nSubtotal: ${formatPrice(sub)}`;
+    message += `\nSecurity Deposit: ${depositLabel}`;
+    if (nat === "national") {
+      message += `\nTotal: ${formatPrice(totalPrice)}`;
+    } else {
+      message += `\nTotal: ${formatPrice(sub)} + US$ ${DEPOSIT_FOREIGN}`;
+    }
+    
+    whatsappBtn.href = `https://wa.me/14734036877?text=${encodeURIComponent(message)}`;
+  }
+
+  function updatePrice() {
+    calcDays.textContent = String(dayCount);
+    const sub = pricePerDay * dayCount;
+    const nat = getSelectedNationality();
+    const deposit = getDepositAmount();
+
+    subtotal.textContent = formatPrice(sub);
+    depositAmtEl.textContent = formatDepositLabel();
+
+    if (nat === "national") {
+      total.textContent = `${formatPrice(sub + deposit)}`;
+    } else {
+      total.textContent = `${formatPrice(sub)} + US$ ${DEPOSIT_FOREIGN}`;
+    }
+
+    updateWhatsappHref();
+  }
+
+  // update when nationality changes
+  if (nationalRadio) nationalRadio.addEventListener("change", updatePrice);
+  if (foreignRadio) foreignRadio.addEventListener("change", updatePrice);
+
+  startDateInput.addEventListener("change", () => {
+    startDate = startDateInput.value;
+    updatePrice();
+  });
+
+  dayCountEl.addEventListener("input", () => {
+  let value = parseInt(dayCountEl.value, 10);
+
+  if (isNaN(value) || value < 1) {
+    dayCount = 1;
+  } else {
+    dayCount = value;
+  }
+
+  updatePrice();
+});
+
+dayCountEl.addEventListener("blur", () => {
+  if (dayCountEl.value.trim() === "") {
+    dayCountEl.value = "1";
+    dayCount = 1;
+    updatePrice();
+  }
+});
+
+  updatePrice();
+
+  const calendarEl = document.getElementById("calendar") as HTMLDivElement;
+  let unavailableDates = new Set<string>();
+  let current = new Date();
+  let currentMonth = current.getMonth();
+  let currentYear = current.getFullYear();
+  let selectedDate = "";
+
+  async function fetchUnavailableDates() {
+    try {
+      const res = await fetch(`${backendBase()}/cars/${carSlug}/unavailable`);
+      const data = await res.json();
+      unavailableDates = new Set((data || []).map((d:any) => d.date));
+      renderCalendar(currentMonth, currentYear);
+    } catch (e) {
+      console.warn("Could not load unavailable dates", e);
+      renderCalendar(currentMonth, currentYear);
+    }
+  }
+
+  function formatLocalDate(year:number, month:number, day:number) {
+    const date = new Date(year, month, day);
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  }
+
+  function renderCalendar(month:number, year:number) {
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+   const monthNames = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December"
+];
+
+const weekdayNames = [
+  "Sun",
+  "Mon",
+  "Tue",
+  "Wed",
+  "Thu",
+  "Fri",
+  "Sat"
+];
+    const totalCells = Math.ceil((firstDay + daysInMonth) / 7) * 7;
+
+    calendarEl.innerHTML = "";
+
+    const header = document.createElement("div");
+    header.className = "calendar-header";
+    header.innerHTML = `
+      <button id="calPrev" class="cal-nav" type="button">◀</button>
+      <div class="cal-title">${monthNames[month]} ${year}</div>
+      <button id="calNext" class="cal-nav" type="button">▶</button>
+    `;
+    calendarEl.appendChild(header);
+
+    const table = document.createElement("table");
+    table.className = "calendar-table";
+
+    const thead = document.createElement("thead");
+    const headRow = document.createElement("tr");
+    weekdayNames.forEach((name) => {
+      const th = document.createElement("th");
+      th.textContent = name;
+      headRow.appendChild(th);
+    });
+    thead.appendChild(headRow);
+    table.appendChild(thead);
+
+    const tbody = document.createElement("tbody");
+    let dayNumber = 1;
+
+    for (let row = 0; row < totalCells / 7; row++) {
+      const tr = document.createElement("tr");
+
+      for (let col = 0; col < 7; col++) {
+        const cellIndex = row * 7 + col;
+        const td = document.createElement("td");
+        td.className = "calendar-cell";
+
+        if (cellIndex < firstDay || dayNumber > daysInMonth) {
+          td.classList.add("empty");
+          tr.appendChild(td);
+          continue;
+        }
+
+        const date = new Date(year, month, dayNumber);
+        const iso = formatLocalDate(date.getFullYear(), date.getMonth(), date.getDate());
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "day-btn";
+        btn.textContent = String(dayNumber);
+
+        if (unavailableDates.has(iso)) {
+          btn.classList.add("unavailable");
+          btn.disabled = true;
+        } else {
+          if (startDate && startDate === iso) {
+            btn.classList.add("selected");
+          }
+          btn.addEventListener("click", () => {
+            selectedDate = iso;
+            startDateInput.value = iso;
+            startDate = iso;
+            updatePrice();
+            renderCalendar(currentMonth, currentYear);
+          });
+        }
+
+        td.appendChild(btn);
+        tr.appendChild(td);
+        dayNumber++;
+      }
+
+      tbody.appendChild(tr);
+    }
+
+    table.appendChild(tbody);
+    calendarEl.appendChild(table);
+
+    (document.getElementById("calPrev") as HTMLButtonElement)?.addEventListener("click", () => {
+      currentMonth--;
+      if (currentMonth < 0) {
+        currentMonth = 11;
+        currentYear--;
+      }
+      renderCalendar(currentMonth, currentYear);
+    });
+
+    (document.getElementById("calNext") as HTMLButtonElement)?.addEventListener("click", () => {
+      currentMonth++;
+      if (currentMonth > 11) {
+        currentMonth = 0;
+        currentYear++;
+      }
+      renderCalendar(currentMonth, currentYear);
+    });
+  }
+
+  // initial load
+  fetchUnavailableDates();
+</script>
+
+<style>
+  .booking-section {
+    padding: 48px 0;
+  }
+  
+  .booking-container {
+    background: white;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    border-radius: 16px;
+    padding: 32px;
+  }
+
+  .booking-header {
+    margin-bottom: 28px;
+  }
+
+  .booking-header h2 {
+    font-size: 22px;
+    font-weight: 600;
+    color: #0f172a;
+    margin-bottom: 4px;
+  }
+
+  .booking-subtitle {
+    font-size: 14px;
+    color: #94a3b8;
+  }
+
+  .booking-form {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .form-group label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #0f172a;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .form-input {
+    padding: 12px 16px;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    font-size: 15px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .form-input:focus {
+    border-color: #0f172a;
+  }
+
+  .days-selector {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #f8fafc;
+    border-radius: 10px;
+    padding: 14px 16px;
+  }
+
+  .days-selector label {
+    font-size: 12px;
+    font-weight: 500;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .days-input {
+  width: 90px;
+  padding: 10px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 18px;
+  font-weight: 700;
+  text-align: center;
+  background: white;
+  color: #0f172a;
+  outline: none;
+  transition: border-color .2s, box-shadow .2s;
+}
+
+.days-input:focus {
+  border-color: #0f172a;
+  box-shadow: 0 0 0 3px rgba(15,23,42,.08);
+}
+
+  .price-breakdown {
+    background: #f8fafc;
+    border-radius: 10px;
+    padding: 16px;
+  }
+
+  .price-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 14px;
+    color: #64748b;
+    padding: 6px 0;
+  }
+
+  .price-row.total {
+    border-top: 1px solid #e2e8f0;
+    margin-top: 4px;
+    padding-top: 12px;
+    font-size: 18px;
+    font-weight: 700;
+    color: #0f172a;
+  }
+
+  .deposit-row {
+    margin-top: 6px;
+    padding-top: 10px;
+    border-top: 1px dashed #cbd5e1;
+    color: #475569;
+  }
+
+  .deposit-options {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .pay-btn {
+    width: 100%;
+    padding: 16px;
+    background: #0f172a;
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-family: inherit;
+  }
+
+  .pay-btn:hover:not(:disabled) {
+    background: #1e293b;
+  }
+
+  .pay-btn:disabled {
+    background: #cbd5e1;
+    cursor: not-allowed;
+  }
+
+  .book-error {
+    font-size: 13px;
+    color: #dc2626;
+  }
+
+  .book-success {
+    font-size: 14px;
+    color: #16a34a;
+    font-weight: 500;
+    text-align: center;
+    padding: 12px;
+    background: #f0fdf4;
+    border-radius: 10px;
+  }
+
+  .loader {
+    width: 20px;
+    height: 20px;
+    border: 2px solid white;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  /* Calendar styles */
+  .calendar {
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 16px;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.05);
+  }
+
+  .calendar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  .cal-title {
+    flex: 1;
+    font-weight: 700;
+    color: #0f172a;
+    font-size: 15px;
+    text-align: center;
+  }
+
+  .cal-nav {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    color: #0f172a;
+    padding: 8px 10px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .cal-nav:hover {
+    background: #e2e8f0;
+    transform: translateY(-1px);
+  }
+
+  .calendar-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 6px;
+  }
+
+  .calendar-table thead th {
+    font-size: 11px;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 700;
+    padding: 4px 0 8px;
+    text-align: center;
+  }
+
+  .calendar-table tbody td {
+    padding: 0;
+    text-align: center;
+    width: 14.28%;
+  }
+
+  .calendar-cell {
+    min-height: 44px;
+  }
+
+  .calendar-cell.empty {
+    background: transparent;
+  }
+
+  .day-btn {
+    width: 100%;
+    min-height: 44px;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    background: white;
+    color: #0f172a;
+    font-weight: 600;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .day-btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+    border-color: #94a3b8;
+    box-shadow: 0 4px 10px rgba(15, 23, 42, 0.08);
+  }
+
+  .day-btn.selected {
+    background: #0f172a;
+    color: white;
+    border-color: #0f172a;
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.16);
+  }
+
+  .day-btn.unavailable {
+    background: #fee2e2;
+    color: #9f1239;
+    border-color: #fecaca;
+    cursor: not-allowed;
+  }
+
+  .day-btn.unavailable:hover {
+    transform: none;
+    box-shadow: none;
+  }
+</style>

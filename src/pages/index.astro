@@ -1,0 +1,28 @@
+---
+import Layout from "../layouts/Layout.astro";
+import Header from "../components/Header.astro";
+import AboutInfo from "../components/AboutInfo.astro";
+import CarGrid from "../components/CarGrid.astro";
+import Footer from "../components/Footer.astro";
+import { getCarsByBrand } from "../data/cars";
+---
+
+<Layout>
+  <Header />
+  <main>
+    <CarGrid brand="Suzuki" cars={getCarsByBrand("Suzuki")} />
+    <AboutInfo brand="suzuki" />
+    <CarGrid brand="Nissan" cars={getCarsByBrand("Nissan")} />
+    <AboutInfo brand="nissan" />
+  </main>
+  <Footer />
+</Layout>
+
+<style>
+  main {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 0;
+  }
+</style>

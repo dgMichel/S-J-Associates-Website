@@ -1,0 +1,173 @@
+---
+import CarCard from "./CarCard.astro";
+import type { Car } from "../data/cars";
+
+export interface Props {
+  brand: string;
+  cars: Array<Car>;
+}
+
+const { brand, cars } = Astro.props;
+const id = brand.toLowerCase();
+---
+
+<section id={id} class="car-section">
+  <div class="galeria-wrapper">
+    <div class="titulo">
+      {brand}
+      <span>disponibles</span>
+    </div>
+    <div class="galeria">
+      {cars.map((car) => <CarCard {...car} />)}
+    </div>
+  </div>
+</section>
+
+<style>
+  .car-section {
+    padding: 40px 20px;
+    display: flex;
+    justify-content: center;
+  }
+
+  .galeria-wrapper {
+    background: #ffffff;
+    border-radius: 32px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.06);
+    padding: 20px 10px 5px;
+    width: 100%;
+    max-width: 1200px;
+    transition: box-shadow 0.3s ease;
+  }
+
+  .titulo {
+    text-align: center;
+    margin-bottom: 20px;
+    font-size: 20px;
+    font-weight: 700;
+    color: #0f172a;
+    letter-spacing: -0.5px;
+  }
+
+  .titulo span {
+    background: #e2e8f0;
+    padding: 4px 18px;
+    border-radius: 40px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #475569;
+    margin-left: 12px;
+  }
+
+  .galeria {
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    gap: 0;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding: 20px 5px 40px;
+    min-height: 320px;
+    background: linear-gradient(to bottom, #f8fafc 0%, #e9edf2 100%);
+    border-radius: 20px;
+    position: relative;
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
+  }
+
+  .galeria::-webkit-scrollbar {
+    height: 6px;
+  }
+
+  .galeria::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .galeria::-webkit-scrollbar-thumb {
+    background-color: #cbd5e1;
+    border-radius: 10px;
+  }
+
+  .galeria::after {
+    content: "";
+    position: absolute;
+    bottom: 30px;
+    left: 15%;
+    width: 70px;
+    height: 3px;
+    background: rgba(0, 0, 0, 0.06);
+    border-radius: 100%;
+    filter: blur(3px);
+  }
+
+  :global(.car-card) {
+    margin-left: -30px;
+  }
+
+  :global(.car-card:first-child) {
+    margin-left: 0;
+  }
+
+  @media (min-width: 1024px) {
+    .galeria {
+      min-height: 400px;
+    }
+    :global(.car-card) {
+      margin-left: -60px;
+    }
+    :global(.car-card:first-child) {
+      margin-left: 0;
+    }
+  }
+
+  @media (min-width: 1440px) {
+    .galeria-wrapper {
+      max-width: 1600px;
+    }
+
+    .galeria {
+      min-height: 480px;
+      padding: 30px 5px 50px;
+    }
+
+    .galeria::after {
+      width: 100px;
+      height: 4px;
+      bottom: 38px;
+    }
+
+    :global(.car-card) {
+      margin-left: -80px;
+    }
+
+    :global(.car-card:first-child) {
+      margin-left: 0;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .car-section {
+      padding: 20px 0; /* Removing side padding so it spans full width */
+    }
+
+    .galeria {
+      gap: 0;
+      padding: 16px 20px 32px; /* Add some left/right padding inside the scroll area */
+      min-height: auto;
+      justify-content: flex-start; /* Start from the left so overflow is obvious */
+    }
+
+    :global(.car-card) {
+      margin-left: -30px;
+    }
+
+    :global(.car-card:first-child) {
+      margin-left: 0;
+    }
+
+    .galeria-wrapper {
+      padding: 20px 0 5px; /* Adjust wrapper padding */
+      border-radius: 0; /* Remove border-radius on mobile to look like a full-width slider */
+    }
+  }
+</style>
