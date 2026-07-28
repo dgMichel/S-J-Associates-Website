@@ -35,7 +35,7 @@ export const cars: Array<Car> = [
       'Vibrant Red Suzuki Ignis 2016. A stylish and reliable compact car, ideal for navigating the city with ease.',
     specs: {
       engine: '1.2L 4-cylinder',
-      transmission: 'Manual',
+      transmission: 'Automatic',
       fuel: 'Gasoline',
       seats: 5,
       doors: 5,
@@ -65,7 +65,7 @@ export const cars: Array<Car> = [
       'Well-maintained Suzuki Ignis 2016 in elegant Gold. Perfect for city driving with great fuel economy and compact design.',
     specs: {
       engine: '1.2L 4-cylinder',
-      transmission: 'Manual',
+      transmission: 'Automatic',
       fuel: 'Gasoline',
       seats: 5,
       doors: 5,
@@ -95,7 +95,7 @@ export const cars: Array<Car> = [
       'Crisp White Suzuki Ignis 2016. Clean, practical, and efficient — the ideal daily driver for any journey.',
     specs: {
       engine: '1.2L 4-cylinder',
-      transmission: 'Manual',
+      transmission: 'Automatic',
       fuel: 'Gasoline',
       seats: 5,
       doors: 5,
@@ -124,7 +124,7 @@ export const cars: Array<Car> = [
       'Another elegant Gold Suzuki Ignis 2016. Reliable, fuel-efficient, and ready to take you wherever you need to go.',
     specs: {
       engine: '1.2L 4-cylinder',
-      transmission: 'Manual',
+      transmission: 'Automatic',
       fuel: 'Gasoline',
       seats: 5,
       doors: 5,
@@ -154,7 +154,7 @@ export const cars: Array<Car> = [
       'Eye-catching Turquoise Suzuki Ignis 2016. Stand out on the road with this unique color while enjoying reliable performance.',
     specs: {
       engine: '1.2L 4-cylinder',
-      transmission: 'Manual',
+      transmission: 'Automatic',
       fuel: 'Gasoline',
       seats: 5,
       doors: 5,

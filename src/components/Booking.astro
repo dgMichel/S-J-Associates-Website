@@ -31,7 +31,7 @@ const { car } = Astro.props;
     id="dayCount"
     class="days-input"
     type="number"
-    min="1"
+    min="2"
     placeholder="1"
     inputmode="numeric"
   />
@@ -64,7 +64,7 @@ const { car } = Astro.props;
         id="whatsappBtn"
         class="pay-btn whatsapp-btn"
         href={
-          `https://wa.me/14734036877?text=${encodeURIComponent(
+          `https://wa.me/14734046549?text=${encodeURIComponent(
             `Hola, quiero reservar el auto ${car.brand} ${car.model}`
           )}`
         }
@@ -174,7 +174,7 @@ const { car } = Astro.props;
     message += `\nSecurity Deposit: ${depositLabel}`;
     message += `\nTotal: ${totalLabel}`;
 
-    whatsappBtn.href = `https://wa.me/14734036877?text=${encodeURIComponent(message)}`;
+    whatsappBtn.href = `https://wa.me/14734046549?text=${encodeURIComponent(message)}`;
   }
 
   function updatePrice() {
