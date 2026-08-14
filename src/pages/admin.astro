@@ -56,6 +56,7 @@ const carsJson = JSON.stringify(cars.map(c => ({
 
 <script>
   import { getOverridePrice, setPriceOverride, dispatchPricesChanged } from "../lib/prices";
+  import { getBackendUrl } from "../lib/api";
 
   (() => {
     type CarRow = { slug: string; brand: string; model: string; color: string; plate: string; pricePerDay: number };
@@ -74,10 +75,7 @@ const carsJson = JSON.stringify(cars.map(c => ({
 
     const carList = JSON.parse(document.getElementById("carsData")?.textContent || "[]") as CarRow[];
 
-    const backendBase = () => {
-      const full = localStorage.getItem("backend_url") || "";
-      return full.replace(/\/payments\/create-checkout-session$/, "").replace(/\/$/, "") || "http://localhost:8000/api/v1";
-    };
+    const backendBase = () => getBackendUrl();
 
     const toast = (() => {
       const el = document.getElementById("toast") as HTMLDivElement;

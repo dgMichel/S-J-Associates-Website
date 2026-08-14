@@ -61,7 +61,8 @@ import { Image } from "astro:assets";
 </div>
 
 <script>
-  const BACKEND = localStorage.getItem("backend_url")?.replace(/\/payments\/create-checkout-session$/, "") || "http://localhost:8000/api/v1";
+  import { getBackendUrl } from "../lib/api";
+  const BACKEND = getBackendUrl();
 
   function isLoggedIn() {
     return !!localStorage.getItem("access_token");
