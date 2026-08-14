@@ -1,5 +1,14 @@
 ---
 import Layout from "../layouts/Layout.astro";
+import { cars } from "../data/cars";
+const carsJson = JSON.stringify(cars.map(c => ({
+  slug: c.slug,
+  brand: c.brand,
+  model: c.model,
+  color: c.color,
+  plate: c.plate,
+  pricePerDay: c.pricePerDay,
+})));
 ---
 
 <Layout>
@@ -7,63 +16,21 @@ import Layout from "../layouts/Layout.astro";
     <div class="admin-container">
       <div class="admin-header">
         <a href="/" class="back-link">&larr; Back to site</a>
-        <h1>Admin Panel</h1>
-        <p class="subtitle">Configure backend API, Stripe payments & user accounts</p>
+        <div class="header-row">
+          <div>
+            <h1>Admin Panel</h1>
+            <p class="subtitle">Manage car prices and availability</p>
+          </div>
+          <button id="logoutBtn" class="header-logout">Log out</button>
+        </div>
       </div>
 
       <div class="admin-card">
-        <h2>Backend Configuration</h2>
-        <p class="field-desc">
-          Enter the URL of your backend API that handles bookings and payments.
-        </p>
-
-        <div class="form-group">
-          <label for="backendUrl">Backend URL</label>
-          <input
-            type="url"
-            id="backendUrl"
-            placeholder="http://localhost:8000/api/v1/payments/create-checkout-session"
-            class="admin-input"
-          />
-          <span class="field-hint">Full URL to the create-checkout-session endpoint</span>
-        </div>
-
-        <button id="saveBtn" class="save-btn">Save Settings</button>
-        <p id="saveMsg" class="save-msg" style="display:none"></p>
-      </div>
-
-      <div class="admin-card" id="stripeCard">
-        <h2>Stripe Connect</h2>
-        <p class="field-desc">
-          Connect your Stripe account to start receiving payments. Your API keys stay
-          with Stripe &mdash; you just need to authorize this platform via Stripe's secure
-          onboarding flow.
-        </p>
-
-        <div id="stripeStatus" class="stripe-status">
-          <div class="status-row">
-            <span class="status-label">Status:</span>
-            <span id="stripeConnected" class="status-badge status-disconnected">Disconnected</span>
-          </div>
-          <div id="stripeDetails" style="display:none">
-            <div class="status-row">
-              <span class="status-label">Account:</span>
-              <span id="stripeEmail" class="status-value"></span>
-            </div>
-            <div class="status-row">
-              <span class="status-label">Charges:</span>
-              <span id="stripeCharges" class="status-value"></span>
-            </div>
-          </div>
-        </div>
-
-        <button id="connectStripeBtn" class="save-btn stripe-btn">Connect with Stripe</button>
-        <p id="stripeMsg" class="save-msg" style="display:none"></p>
-      </div>
-
-      <div class="admin-card" id="carsCard">
         <h2>Car Prices</h2>
-        <p class="field-desc">Update rental prices or add new vehicles.</p>
+        <p class="field-desc">
+          Update the daily rental price for each vehicle. Changes apply across the
+          site immediately for this browser.
+        </p>
 
         <div id="carsTable" class="cars-table">
           <div class="cars-loading">Loading cars...</div>
@@ -71,218 +38,397 @@ import Layout from "../layouts/Layout.astro";
         <p id="carsMsg" class="save-msg" style="display:none"></p>
       </div>
 
-      <div class="admin-card">
-        <h2>Expected API Response</h2>
-        <p class="field-desc">
-          Your backend should accept a <code>POST</code> request and return the Stripe
-          Checkout URL:
-        </p>
-        <pre class="code-block">{`{
-  "url": "https://checkout.stripe.com/c/pay/..."
-}`}</pre>
-        <p class="field-desc" style="margin-top:12px">
-          On success, the frontend redirects to that URL. After payment, Stripe redirects
-          to <code>/booking-confirmed</code>.
-        </p>
+      <div class="admin-card" id="availabilityCard">
+        <h2>Availability</h2>
+        <p class="field-desc">Mark dates as unavailable for each vehicle.</p>
+
+        <div id="availabilityList" class="availability-list">
+          <div class="cars-loading">Loading cars...</div>
+        </div>
       </div>
     </div>
   </main>
+
+  <div id="toast" class="toast" style="display:none"></div>
+
+  <script id="carsData" type="application/json" set:html={carsJson}></script>
 </Layout>
 
 <script>
+  import { getOverridePrice, setPriceOverride, dispatchPricesChanged } from "../lib/prices";
+
   (() => {
-  const urlInput = document.getElementById("backendUrl") as HTMLInputElement;
-  const saveBtn = document.getElementById("saveBtn") as HTMLButtonElement;
-  const saveMsg = document.getElementById("saveMsg") as HTMLParagraphElement;
+    type CarRow = { slug: string; brand: string; model: string; color: string; plate: string; pricePerDay: number };
+    type Unavailable = { id: number; date: string; reason: string | null };
 
-  const connectBtn = document.getElementById("connectStripeBtn") as HTMLButtonElement;
-  const stripeMsg = document.getElementById("stripeMsg") as HTMLParagraphElement;
-  const stripeConnected = document.getElementById("stripeConnected") as HTMLSpanElement;
-  const stripeEmail = document.getElementById("stripeEmail") as HTMLSpanElement;
-  const stripeCharges = document.getElementById("stripeCharges") as HTMLSpanElement;
-  const stripeDetails = document.getElementById("stripeDetails") as HTMLDivElement;
+    const tokenPayload = (() => {
+      try { return JSON.parse(atob((localStorage.getItem("access_token") || "").split(".")[1])); }
+      catch { return null; }
+    })();
+    const userRole = tokenPayload?.app_metadata?.role || tokenPayload?.role;
+    if (!tokenPayload || userRole !== "admin") {
+      const main = document.querySelector("main") as HTMLElement;
+      main.innerHTML = `<div style="min-height:80vh;display:flex;align-items:center;justify-content:center"><div style="text-align:center;max-width:400px"><h1 style="font-size:24px;font-weight:700;color:#0f172a;margin-bottom:8px">Access Denied</h1><p style="color:#64748b;margin-bottom:24px">You need admin privileges to access this page.</p><a href="/" style="display:inline-block;padding:12px 28px;background:#0f172a;color:white;border-radius:10px;font-weight:600;text-decoration:none">Go Home</a></div></div>`;
+      return;
+    }
 
-  const backendBase = () => {
-    const full = urlInput.value.trim();
-    return full.replace(/\/payments\/create-checkout-session$/, "").replace(/\/$/, "") || "http://localhost:8000/api/v1";
-  };
+    const carList = JSON.parse(document.getElementById("carsData")?.textContent || "[]") as CarRow[];
 
-  const tokenPayload = (() => {
-    try { return JSON.parse(atob((localStorage.getItem("access_token") || "").split(".")[1])); }
-    catch { return null; }
-  })();
-  if (!tokenPayload || tokenPayload.role !== "admin") {
-    const main = document.querySelector("main") as HTMLElement;
-    main.innerHTML = `<div style="min-height:80vh;display:flex;align-items:center;justify-content:center"><div style="text-align:center;max-width:400px"><h1 style="font-size:24px;font-weight:700;color:#0f172a;margin-bottom:8px">Access Denied</h1><p style="color:#64748b;margin-bottom:24px">You need admin privileges to access this page.</p><a href="/" style="display:inline-block;padding:12px 28px;background:#0f172a;color:white;border-radius:10px;font-weight:600;text-decoration:none">Go Home</a></div></div>`;
-    return;
-  }
+    const backendBase = () => {
+      const full = localStorage.getItem("backend_url") || "";
+      return full.replace(/\/payments\/create-checkout-session$/, "").replace(/\/$/, "") || "http://localhost:8000/api/v1";
+    };
 
-  urlInput.value = localStorage.getItem("backend_url") || "";
+    const toast = (() => {
+      const el = document.getElementById("toast") as HTMLDivElement;
+      let timer: number | undefined;
+      return (msg: string, kind: "ok" | "err" = "ok") => {
+        el.textContent = msg;
+        el.className = `toast toast--${kind}`;
+        el.style.display = "block";
+        if (timer) window.clearTimeout(timer);
+        timer = window.setTimeout(() => { el.style.display = "none"; }, 3000);
+      };
+    })();
 
-  saveBtn.addEventListener("click", () => {
-    localStorage.setItem("backend_url", urlInput.value.trim());
-    saveMsg.textContent = "Settings saved successfully!";
-    saveMsg.style.display = "block";
-    saveMsg.style.color = "#16a34a";
-    setTimeout(() => { saveMsg.style.display = "none"; }, 3000);
-  });
+    const forceLogout = () => {
+      localStorage.removeItem("access_token");
+      localStorage.removeItem("username");
+      localStorage.removeItem("user_role");
+      toast("Session expired. Please log in again.", "err");
+      setTimeout(() => { window.location.href = "/"; }, 1500);
+    };
 
-  async function checkStripeStatus() {
-    try {
-      const res = await fetch(`${backendBase()}/payments/connect/status`);
-      const data = await res.json();
-      if (data.connected) {
-        stripeConnected.textContent = "Connected";
-        stripeConnected.className = "status-badge status-connected";
-        stripeDetails.style.display = "block";
-        stripeEmail.textContent = data.email || "—";
-        stripeCharges.textContent = data.charges_enabled ? "Enabled" : "Pending";
-        connectBtn.textContent = "Reconnect Stripe";
-      } else {
-        stripeConnected.textContent = "Disconnected";
-        stripeConnected.className = "status-badge status-disconnected";
-        stripeDetails.style.display = "none";
-        connectBtn.textContent = "Connect with Stripe";
+    document.getElementById("logoutBtn")?.addEventListener("click", forceLogout);
+
+    async function authedFetch(url: string, init: RequestInit = {}): Promise<Response> {
+      const token = localStorage.getItem("access_token") || "";
+      const headers = new Headers(init.headers || {});
+      headers.set("Authorization", `Bearer ${token}`);
+      if (init.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
+      const res = await fetch(url, { ...init, headers });
+      if (res.status === 401) {
+        forceLogout();
+        throw new Error("unauthorized");
       }
-    } catch {
-      stripeConnected.textContent = "Backend unreachable";
-      stripeConnected.className = "status-badge status-error";
+      return res;
     }
-  }
 
-  connectBtn.addEventListener("click", async () => {
-    stripeMsg.style.display = "none";
-    connectBtn.disabled = true;
-    connectBtn.textContent = "Connecting...";
-    try {
-      const res = await fetch(`${backendBase()}/payments/connect/url`);
-      const data = await res.json();
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        stripeMsg.textContent = "Stripe Connect is not configured on the backend.";
-        stripeMsg.style.display = "block";
-        stripeMsg.style.color = "#dc2626";
-        connectBtn.disabled = false;
-        connectBtn.textContent = "Connect with Stripe";
-      }
-    } catch {
-      stripeMsg.textContent = "Could not reach the backend server.";
-      stripeMsg.style.display = "block";
-      stripeMsg.style.color = "#dc2626";
-      connectBtn.disabled = false;
-      connectBtn.textContent = "Connect with Stripe";
-    }
-  });
+    function renderPrices() {
+      const table = document.getElementById("carsTable") as HTMLDivElement;
+      const msg = document.getElementById("carsMsg") as HTMLParagraphElement;
 
-  if (window.location.search.includes("stripe=callback")) {
-    const code = new URLSearchParams(window.location.search).get("code");
-    if (code) {
-      (async () => {
-        stripeMsg.textContent = "Completing Stripe connection...";
-        stripeMsg.style.display = "block";
-        stripeMsg.style.color = "#2563eb";
-        try {
-          const res = await fetch(`${backendBase()}/payments/connect/callback?code=${code}`);
-          const data = await res.json();
-          if (data.status === "connected") {
-            stripeMsg.textContent = "Stripe connected successfully!";
-            stripeMsg.style.color = "#16a34a";
-            checkStripeStatus();
-            window.history.replaceState({}, "", "/admin");
-          } else {
-            stripeMsg.textContent = data.detail || "Connection failed.";
-            stripeMsg.style.color = "#dc2626";
-          }
-        } catch {
-          stripeMsg.textContent = "Could not complete Stripe connection.";
-          stripeMsg.style.color = "#dc2626";
-        }
-      })();
-    }
-  }
-
-  checkStripeStatus();
-
-  async function loadCars() {
-    const table = document.getElementById("carsTable") as HTMLDivElement;
-    const msg = document.getElementById("carsMsg") as HTMLParagraphElement;
-    try {
-      const res = await fetch(`${backendBase()}/cars`);
-      const cars = await res.json();
-      table.innerHTML = `<div class="cars-header"><span class="car-cell car-cell--wide">Car</span><span class="car-cell">Price/day</span><span class="car-cell">Status</span><span class="car-cell car-cell--action"></span></div>` +
-        cars.map((c: {slug:string; brand:string; model:string; color:string; plate:string; price_per_day:number; available:boolean}) =>
-          `<div class="car-row" data-slug="${c.slug}">
+      table.innerHTML = `<div class="cars-header prices-header">
+          <span class="car-cell car-cell--wide">Car</span>
+          <span class="car-cell price-col">Base price</span>
+          <span class="car-cell price-col">Current price</span>
+          <span class="car-cell car-cell--action"></span>
+        </div>` +
+        carList.map((c) => {
+          const current = getOverridePrice(c.slug, c.pricePerDay);
+          const changed = current !== c.pricePerDay;
+          return `<div class="car-row" data-slug="${c.slug}">
             <span class="car-cell car-cell--wide">${c.brand} ${c.model} — ${c.color} (${c.plate})</span>
-            <span class="car-cell"><input type="number" class="price-input" value="${c.price_per_day}" min="0" step="1" /></span>
-            <span class="car-cell"><select class="avail-select"><option value="true" ${c.available ? "selected" : ""}>Available</option><option value="false" ${!c.available ? "selected" : ""}>Unavailable</option></select></span>
-            <span class="car-cell car-cell--action"><button class="car-save-btn">Save</button> <button class="car-avail-btn">Manage availability</button></span>
-          </div>`
-        ).join("");
-      table.querySelectorAll(".car-save-btn").forEach((btn) =>
-        btn.addEventListener("click", async () => {
-          const row = (btn as HTMLElement).closest(".car-row") as HTMLElement;
-          const slug = row.dataset.slug!;
-          const price = parseFloat((row.querySelector(".price-input") as HTMLInputElement).value);
-          const available = (row.querySelector(".avail-select") as HTMLSelectElement).value === "true";
-          msg.style.display = "none";
-          (btn as HTMLButtonElement).disabled = true;
-          (btn as HTMLButtonElement).textContent = "Saving...";
-          try {
-            const token = localStorage.getItem("access_token") || "";
-            const r = await fetch(`${backendBase()}/cars/${slug}`, {
-              method: "PUT",
-              headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-              body: JSON.stringify({ price_per_day: price, available }),
-            });
-            if (!r.ok) throw new Error();
-            msg.textContent = "Price updated!";
-            msg.style.color = "#16a34a";
-            msg.style.display = "block";
-          } catch {
-            msg.textContent = "Failed to update";
-            msg.style.color = "#dc2626";
-            msg.style.display = "block";
-          }
-          (btn as HTMLButtonElement).disabled = false;
-          (btn as HTMLButtonElement).textContent = "Save";
-          setTimeout(() => { msg.style.display = "none"; }, 3000);
-        })
-      );
+            <span class="car-cell price-col">EC$ ${c.pricePerDay}</span>
+            <span class="car-cell price-col"><input type="number" class="price-input" min="0" step="1" value="${current}" /></span>
+            <span class="car-cell car-cell--action">
+              <button class="car-save-btn">Save</button>
+              ${changed ? `<button class="car-reset-btn" title="Reset to base price">Reset</button>` : ""}
+            </span>
+          </div>`;
+        }).join("");
 
-      // Manage availability buttons
-      table.querySelectorAll(".car-avail-btn").forEach((btn) =>
-        btn.addEventListener("click", async () => {
-          const row = (btn as HTMLElement).closest(".car-row") as HTMLElement;
+      table.querySelectorAll<HTMLButtonElement>(".car-save-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const row = btn.closest(".car-row") as HTMLElement;
           const slug = row.dataset.slug!;
-          const date = prompt("Enter date to toggle unavailable (YYYY-MM-DD):");
-          if (!date) return;
-          try {
-            const token = localStorage.getItem("access_token") || "";
-            // load existing
-            const resDates = await fetch(`${backendBase()}/cars/${slug}/unavailable`);
-            const list = await resDates.json();
-            const exists = list.some((d: any) => d.date === date);
-            if (exists) {
-              await fetch(`${backendBase()}/cars/${slug}/unavailable/${date}`, { method: "DELETE", headers: { "Authorization": `Bearer ${token}` } });
-              alert("Date removed from unavailable list");
-            } else {
-              const r = await fetch(`${backendBase()}/cars/${slug}/unavailable`, { method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` }, body: JSON.stringify({ date }) });
-              if (!r.ok) throw new Error();
-              alert("Date added as unavailable");
-            }
-            loadCars();
-          } catch {
-            alert("Failed to update availability. Check backend or permissions.");
+          const input = row.querySelector(".price-input") as HTMLInputElement;
+          const price = parseFloat(input.value);
+          if (Number.isNaN(price) || price < 0) {
+            toast("Invalid price", "err");
+            return;
           }
-        })
-      );
-    } catch {
-      table.innerHTML = `<p style="color:#dc2626;font-size:14px">Could not load cars.</p>`;
+          setPriceOverride(slug, price);
+          dispatchPricesChanged();
+          msg.textContent = "Price updated!";
+          msg.style.color = "#16a34a";
+          msg.style.display = "block";
+          setTimeout(() => { msg.style.display = "none"; }, 2500);
+          renderPrices();
+        });
+      });
+
+      table.querySelectorAll<HTMLButtonElement>(".car-reset-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const row = btn.closest(".car-row") as HTMLElement;
+          const slug = row.dataset.slug!;
+          setPriceOverride(slug, carList.find(c => c.slug === slug)!.pricePerDay);
+          dispatchPricesChanged();
+          renderPrices();
+        });
+      });
     }
-  }
 
-  loadCars();
+    function todayISO(): string {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    }
+
+    function formatLongDate(iso: string): string {
+      const [y, m, d] = iso.split("-").map(Number);
+      const date = new Date(y, m - 1, d);
+      return date.toLocaleDateString(undefined, { weekday: "short", year: "numeric", month: "short", day: "numeric" });
+    }
+
+    function expandRange(start: string, end: string): string[] {
+      const [sy, sm, sd] = start.split("-").map(Number);
+      const [ey, em, ed] = end.split("-").map(Number);
+      const s = new Date(sy, sm - 1, sd);
+      const e = new Date(ey, em - 1, ed);
+      if (e < s) return [];
+      const out: string[] = [];
+      const cur = new Date(s);
+      while (cur <= e) {
+        const y = cur.getFullYear();
+        const m = String(cur.getMonth() + 1).padStart(2, "0");
+        const d = String(cur.getDate()).padStart(2, "0");
+        out.push(`${y}-${m}-${d}`);
+        cur.setDate(cur.getDate() + 1);
+      }
+      return out;
+    }
+
+    async function loadAvailability(slug: string): Promise<Unavailable[]> {
+      const res = await fetch(`${backendBase()}/cars/${slug}/unavailable`);
+      if (res.status === 401) {
+        forceLogout();
+        throw new Error("unauthorized");
+      }
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
+    }
+
+    function renderAvailabilityCard(car: CarRow, list: Unavailable[]) {
+      const sorted = [...list].sort((a, b) => a.date.localeCompare(b.date));
+      const chips = sorted.length
+        ? sorted.map((d) => `
+            <span class="date-chip" data-date="${d.date}" data-id="${d.id}">
+              <span class="date-chip__label">${d.date}</span>
+              <span class="date-chip__sub">${formatLongDate(d.date)}</span>
+              <button type="button" class="date-chip__remove" aria-label="Remove ${d.date}">×</button>
+            </span>
+          `).join("")
+        : `<p class="empty-state">No unavailable dates yet.</p>`;
+
+      return `
+        <div class="avail-card" data-slug="${car.slug}">
+          <div class="avail-card__head">
+            <div>
+              <h3>${car.brand} ${car.model} — ${car.color}</h3>
+              <span class="plate-tag">${car.plate}</span>
+            </div>
+            <span class="avail-count">${sorted.length} blocked</span>
+          </div>
+
+          <div class="mode-switch" role="tablist">
+            <button type="button" class="mode-btn is-active" data-mode="single">Single</button>
+            <button type="button" class="mode-btn" data-mode="range">Range</button>
+          </div>
+
+          <div class="avail-card__add avail-card__add--single">
+            <input type="date" class="avail-date" min="${todayISO()}" value="${todayISO()}" />
+            <button type="button" class="avail-add-btn avail-add-single">Mark unavailable</button>
+          </div>
+
+          <div class="avail-card__add avail-card__add--range" style="display:none">
+            <input type="date" class="avail-range-start" min="${todayISO()}" value="${todayISO()}" />
+            <span class="range-sep">→</span>
+            <input type="date" class="avail-range-end" min="${todayISO()}" value="${todayISO()}" />
+            <span class="range-days"></span>
+          </div>
+          <div class="avail-card__add avail-card__add--range" style="display:none">
+            <button type="button" class="avail-add-btn avail-add-range-block">Block range</button>
+            <button type="button" class="avail-add-btn avail-add-range-unblock">Unblock range</button>
+          </div>
+
+          <div class="avail-card__list">
+            ${chips}
+          </div>
+        </div>
+      `;
+    }
+
+    async function renderAvailability() {
+      const root = document.getElementById("availabilityList") as HTMLDivElement;
+      root.innerHTML = "";
+
+      for (const car of carList) {
+        const wrapper = document.createElement("div");
+        wrapper.innerHTML = `<div class="cars-loading">Loading ${car.brand} ${car.model}…</div>`;
+        root.appendChild(wrapper);
+        try {
+          const list = await loadAvailability(car.slug);
+          wrapper.innerHTML = renderAvailabilityCard(car, list);
+          wireAvailabilityCard(wrapper, car.slug);
+        } catch (e: any) {
+          if (e?.message !== "unauthorized") {
+            wrapper.innerHTML = `<p style="color:#dc2626;font-size:13px;padding:12px">Could not load availability.</p>`;
+          }
+        }
+      }
+    }
+
+    function updateRangeDays(scope: HTMLElement) {
+      const start = scope.querySelector<HTMLInputElement>(".avail-range-start");
+      const end = scope.querySelector<HTMLInputElement>(".avail-range-end");
+      const label = scope.querySelector<HTMLElement>(".range-days");
+      if (!start || !end || !label) return;
+      const days = expandRange(start.value, end.value).length;
+      if (days <= 0) {
+        label.textContent = "invalid";
+        label.className = "range-days range-days--invalid";
+      } else if (days === 1) {
+        label.textContent = "1 day";
+        label.className = "range-days";
+      } else {
+        label.textContent = `${days} days`;
+        label.className = "range-days";
+      }
+    }
+
+    function wireAvailabilityCard(scope: HTMLElement, slug: string) {
+      const modeBtns = scope.querySelectorAll<HTMLButtonElement>(".mode-btn");
+      const singleBox = scope.querySelector<HTMLElement>(".avail-card__add--single")!;
+      const rangeBoxes = scope.querySelectorAll<HTMLElement>(".avail-card__add--range");
+
+      modeBtns.forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const mode = btn.dataset.mode;
+          modeBtns.forEach((b) => b.classList.toggle("is-active", b === btn));
+          singleBox.style.display = mode === "single" ? "flex" : "none";
+          rangeBoxes.forEach((b) => (b.style.display = mode === "range" ? "flex" : "none"));
+        });
+      });
+
+      const startEl = scope.querySelector<HTMLInputElement>(".avail-range-start");
+      const endEl = scope.querySelector<HTMLInputElement>(".avail-range-end");
+      startEl?.addEventListener("change", () => {
+        if (endEl && endEl.value < startEl.value) endEl.value = startEl.value;
+        updateRangeDays(scope);
+      });
+      endEl?.addEventListener("change", () => {
+        if (startEl && startEl.value > endEl.value) startEl.value = endEl.value;
+        updateRangeDays(scope);
+      });
+      updateRangeDays(scope);
+
+      const singleBtn = scope.querySelector<HTMLButtonElement>(".avail-add-single");
+      const singleInput = scope.querySelector<HTMLInputElement>(".avail-date");
+      singleBtn?.addEventListener("click", async () => {
+        const date = singleInput?.value;
+        if (!date) return;
+        await runAction(slug, async () => {
+          const res = await authedFetch(`${backendBase()}/cars/${slug}/unavailable`, {
+            method: "POST",
+            body: JSON.stringify({ date }),
+          });
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.detail || `HTTP ${res.status}`);
+          }
+          toast("Date marked unavailable");
+          await refreshCard(slug);
+        });
+      });
+
+      const blockRangeBtn = scope.querySelector<HTMLButtonElement>(".avail-add-range-block");
+      blockRangeBtn?.addEventListener("click", async () => {
+        const start = startEl?.value;
+        const end = endEl?.value;
+        if (!start || !end) return;
+        const days = expandRange(start, end).length;
+        if (days <= 0) {
+          toast("Invalid range", "err");
+          return;
+        }
+        if (!confirm(`Block ${days} day(s) from ${start} to ${end}?`)) return;
+        await runAction(slug, async () => {
+          const res = await authedFetch(`${backendBase()}/cars/${slug}/unavailable/range`, {
+            method: "POST",
+            body: JSON.stringify({ start, end }),
+          });
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.detail || `HTTP ${res.status}`);
+          }
+          toast(`Blocked ${days} day(s)`);
+          await refreshCard(slug);
+        });
+      });
+
+      const unblockRangeBtn = scope.querySelector<HTMLButtonElement>(".avail-add-range-unblock");
+      unblockRangeBtn?.addEventListener("click", async () => {
+        const start = startEl?.value;
+        const end = endEl?.value;
+        if (!start || !end) return;
+        const days = expandRange(start, end).length;
+        if (days <= 0) {
+          toast("Invalid range", "err");
+          return;
+        }
+        if (!confirm(`Unblock ${days} day(s) from ${start} to ${end}?`)) return;
+        await runAction(slug, async () => {
+          const url = `${backendBase()}/cars/${slug}/unavailable/range?start=${start}&end=${end}`;
+          const res = await authedFetch(url, { method: "DELETE" });
+          if (!res.ok && res.status !== 204) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.detail || `HTTP ${res.status}`);
+          }
+          toast(`Unblocked ${days} day(s)`);
+          await refreshCard(slug);
+        });
+      });
+
+      scope.querySelectorAll<HTMLButtonElement>(".date-chip__remove").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const chip = btn.closest(".date-chip") as HTMLElement;
+          const date = chip.dataset.date!;
+          try {
+            const res = await authedFetch(`${backendBase()}/cars/${slug}/unavailable/${date}`, {
+              method: "DELETE",
+            });
+            if (!res.ok && res.status !== 204) throw new Error(`HTTP ${res.status}`);
+            chip.style.opacity = "0";
+            chip.style.transform = "scale(0.9)";
+            setTimeout(() => refreshCard(slug), 200);
+            toast("Date is now available");
+          } catch (e: any) {
+            if (e?.message !== "unauthorized") toast(e.message || "Failed", "err");
+          }
+        });
+      });
+    }
+
+    async function runAction(_slug: string, fn: () => Promise<void>) {
+      try {
+        await fn();
+      } catch (e: any) {
+        if (e?.message !== "unauthorized") toast(e.message || "Failed", "err");
+      }
+    }
+
+    async function refreshCard(slug: string) {
+      const card = document.querySelector<HTMLElement>(`.avail-card[data-slug="${slug}"]`);
+      if (!card) return;
+      const car = carList.find(c => c.slug === slug)!;
+      const list = await loadAvailability(slug);
+      card.outerHTML = renderAvailabilityCard(car, list);
+      const fresh = document.querySelector<HTMLElement>(`.avail-card[data-slug="${slug}"]`);
+      if (fresh) wireAvailabilityCard(fresh, slug);
+    }
+
+    renderPrices();
+    renderAvailability();
   })();
 </script>
 
@@ -293,7 +439,7 @@ import Layout from "../layouts/Layout.astro";
   }
 
   .admin-container {
-    max-width: 640px;
+    max-width: 760px;
     margin: 0 auto;
   }
 
@@ -315,6 +461,14 @@ import Layout from "../layouts/Layout.astro";
     color: #0f172a;
   }
 
+  .header-row {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
   .admin-header h1 {
     font-size: 32px;
     font-weight: 700;
@@ -325,6 +479,24 @@ import Layout from "../layouts/Layout.astro";
   .subtitle {
     font-size: 15px;
     color: #64748b;
+  }
+
+  .header-logout {
+    background: transparent;
+    border: 1px solid #e2e8f0;
+    color: #475569;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: inherit;
+  }
+
+  .header-logout:hover {
+    background: #fef2f2;
+    border-color: #fecaca;
+    color: #dc2626;
   }
 
   .admin-card {
@@ -349,124 +521,11 @@ import Layout from "../layouts/Layout.astro";
     line-height: 1.6;
   }
 
-  .form-group {
-    margin-bottom: 20px;
-  }
-
-  .form-group label {
-    display: block;
-    font-size: 13px;
-    font-weight: 600;
-    color: #0f172a;
-    margin-bottom: 6px;
-  }
-
-  .admin-input {
-    width: 100%;
-    padding: 12px 16px;
-    border: 1px solid #e2e8f0;
-    border-radius: 10px;
-    font-size: 15px;
-    font-family: inherit;
-    transition: border-color 0.2s;
-    outline: none;
-    box-sizing: border-box;
-  }
-
-  .admin-input:focus {
-    border-color: #0f172a;
-  }
-
-  .field-hint {
-    display: block;
-    margin-top: 4px;
-    font-size: 12px;
-    color: #94a3b8;
-  }
-
-  .save-btn {
-    width: 100%;
-    padding: 14px;
-    background: #0f172a;
-    color: white;
-    border: none;
-    border-radius: 10px;
-    font-size: 15px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.2s;
-    margin-top: 8px;
-    font-family: inherit;
-  }
-
-  .save-btn:hover {
-    background: #1e293b;
-  }
-
-  .save-btn:disabled {
-    background: #94a3b8;
-    cursor: not-allowed;
-  }
-
-  .stripe-btn {
-    background: #635bff;
-    margin-top: 16px;
-  }
-
-  .stripe-btn:hover {
-    background: #4f46e5;
-  }
-
   .save-msg {
     text-align: center;
     margin-top: 12px;
     font-size: 14px;
     font-weight: 500;
-  }
-
-  .stripe-status {
-    background: #f8fafc;
-    border-radius: 10px;
-    padding: 16px;
-  }
-
-  .status-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 6px 0;
-    font-size: 14px;
-  }
-
-  .status-label {
-    color: #64748b;
-    font-weight: 500;
-  }
-
-  .status-value {
-    color: #0f172a;
-  }
-
-  .status-badge {
-    padding: 4px 12px;
-    border-radius: 20px;
-    font-size: 12px;
-    font-weight: 600;
-  }
-
-  .status-connected {
-    background: #f0fdf4;
-    color: #16a34a;
-  }
-
-  .status-disconnected {
-    background: #fef2f2;
-    color: #dc2626;
-  }
-
-  .status-error {
-    background: #fef2f2;
-    color: #dc2626;
   }
 
   .cars-table {
@@ -485,7 +544,7 @@ import Layout from "../layouts/Layout.astro";
   .cars-header,
   .car-row {
     display: grid;
-    grid-template-columns: 1fr 100px 120px 80px;
+    grid-template-columns: 1fr 90px 110px auto;
     gap: 8px;
     align-items: center;
     padding: 12px 16px;
@@ -519,8 +578,19 @@ import Layout from "../layouts/Layout.astro";
     text-align: right;
   }
 
+  .price-col {
+    color: #475569;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .prices-header .price-col {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
   .price-input {
-    width: 80px;
+    width: 90px;
     padding: 6px 10px;
     border: 1px solid #e2e8f0;
     border-radius: 6px;
@@ -533,19 +603,9 @@ import Layout from "../layouts/Layout.astro";
     border-color: #0f172a;
   }
 
-  .avail-select {
-    padding: 6px 8px;
-    border: 1px solid #e2e8f0;
-    border-radius: 6px;
-    font-size: 13px;
-    font-family: inherit;
-    outline: none;
-    background: white;
-  }
-
-  .car-save-btn {
-    padding: 6px 14px;
-    background: #0f172a;
+  .car-save-btn,
+  .car-reset-btn {
+    padding: 6px 12px;
     color: white;
     border: none;
     border-radius: 6px;
@@ -553,6 +613,11 @@ import Layout from "../layouts/Layout.astro";
     font-weight: 500;
     cursor: pointer;
     font-family: inherit;
+    margin-left: 4px;
+  }
+
+  .car-save-btn {
+    background: #0f172a;
   }
 
   .car-save-btn:hover {
@@ -564,16 +629,278 @@ import Layout from "../layouts/Layout.astro";
     cursor: not-allowed;
   }
 
-  .code-block {
-    background: #f1f5f9;
-    border-radius: 10px;
-    padding: 16px 20px;
-    font-size: 13px;
-    overflow-x: auto;
-    white-space: pre;
-    font-family: "SF Mono", "Fira Code", monospace;
+  .car-reset-btn {
+    background: #94a3b8;
+  }
+
+  .car-reset-btn:hover {
+    background: #64748b;
+  }
+
+  .availability-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .avail-card {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 18px 20px;
+    transition: border-color 0.2s;
+  }
+
+  .avail-card:hover {
+    border-color: #cbd5e1;
+  }
+
+  .avail-card__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+
+  .avail-card__head h3 {
+    font-size: 15px;
+    font-weight: 700;
     color: #0f172a;
-    line-height: 1.6;
+    margin-bottom: 2px;
+  }
+
+  .plate-tag {
+    font-size: 12px;
+    color: #94a3b8;
+    font-weight: 500;
+  }
+
+  .avail-count {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 999px;
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .avail-card__add {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+
+  .avail-card__add--range {
+    align-items: center;
+  }
+
+  .mode-switch {
+    display: inline-flex;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 3px;
+    margin-bottom: 12px;
+  }
+
+  .mode-btn {
+    padding: 6px 14px;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #64748b;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s;
+  }
+
+  .mode-btn:hover {
+    color: #0f172a;
+  }
+
+  .mode-btn.is-active {
+    background: #0f172a;
+    color: white;
+  }
+
+  .range-sep {
+    color: #94a3b8;
+    font-weight: 600;
+    font-size: 14px;
+    padding: 0 4px;
+  }
+
+  .range-days {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 999px;
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+  }
+
+  .range-days--invalid {
+    color: #dc2626;
+    border-color: #fecaca;
+    background: #fef2f2;
+  }
+
+  .avail-add-range-block {
+    background: #dc2626 !important;
+  }
+
+  .avail-add-range-block:hover {
+    background: #b91c1c !important;
+  }
+
+  .avail-add-range-unblock {
+    background: #16a34a !important;
+  }
+
+  .avail-add-range-unblock:hover {
+    background: #15803d !important;
+  }
+
+  .avail-date {
+    flex: 1;
+    padding: 9px 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: inherit;
+    background: white;
+    color: #0f172a;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .avail-date:focus {
+    border-color: #0f172a;
+  }
+
+  .avail-add-btn {
+    padding: 9px 16px;
+    background: #0f172a;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    white-space: nowrap;
+    transition: background 0.15s;
+  }
+
+  .avail-add-btn:hover {
+    background: #1e293b;
+  }
+
+  .avail-add-btn:disabled {
+    background: #94a3b8;
+    cursor: not-allowed;
+  }
+
+  .avail-card__list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    min-height: 36px;
+  }
+
+  .date-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 8px 6px 12px;
+    background: white;
+    border: 1px solid #fecaca;
+    border-radius: 999px;
+    font-size: 13px;
+    color: #9f1239;
+    transition: opacity 0.2s, transform 0.2s, background 0.15s;
+  }
+
+  .date-chip:hover {
+    background: #fef2f2;
+  }
+
+  .date-chip__label {
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .date-chip__sub {
+    font-size: 11px;
+    color: #b45309;
+    font-weight: 500;
+  }
+
+  .date-chip__remove {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: none;
+    background: #fee2e2;
+    color: #9f1239;
+    font-size: 16px;
+    line-height: 1;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s, color 0.15s;
+  }
+
+  .date-chip__remove:hover {
+    background: #dc2626;
+    color: white;
+  }
+
+  .empty-state {
+    color: #94a3b8;
+    font-size: 13px;
+    font-style: italic;
+    padding: 8px 0;
+  }
+
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 12px 20px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 500;
+    color: white;
+    z-index: 2000;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    animation: toastIn 0.2s ease;
+  }
+
+  .toast--ok {
+    background: #16a34a;
+  }
+
+  .toast--err {
+    background: #dc2626;
+  }
+
+  @keyframes toastIn {
+    from { opacity: 0; transform: translate(-50%, 12px); }
+    to   { opacity: 1; transform: translate(-50%, 0); }
   }
 
   @media (max-width: 768px) {
@@ -583,6 +910,16 @@ import Layout from "../layouts/Layout.astro";
 
     .admin-card {
       padding: 24px 20px;
+    }
+
+    .cars-header,
+    .car-row {
+      grid-template-columns: 1fr;
+      gap: 8px;
+    }
+
+    .car-cell--action {
+      text-align: left;
     }
   }
 </style>

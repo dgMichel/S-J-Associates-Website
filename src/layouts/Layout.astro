@@ -38,6 +38,11 @@ import SpeedInsights from "@vercel/speed-insights/astro";
     <slot />
     <Analytics />
     <SpeedInsights />
+    <script>
+      import { applyPriceOverrides } from "../lib/prices";
+      applyPriceOverrides();
+      window.addEventListener("prices:changed", applyPriceOverrides);
+    </script>
   </body>
 </html>
 

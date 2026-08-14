@@ -107,7 +107,7 @@ const views = [
          <div class="price-box">
   <div class="price-main">
     <div>
-      <span class="price-amount">EC${car.pricePerDay}</span>
+      <span class="price-amount" data-price-slug={car.slug} data-base-price={car.pricePerDay}>EC${car.pricePerDay}</span>
       <span class="price-period">per day</span>
     </div>
   </div>

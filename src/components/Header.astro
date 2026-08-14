@@ -41,7 +41,7 @@ import { Image } from "astro:assets";
     <div id="loginForm" class="auth-form">
       <h2>Log In</h2>
       <p class="auth-subtitle">Log in to book a vehicle</p>
-      <input id="loginUsername" class="auth-input" type="text" placeholder="Username" autocomplete="username" />
+      <input id="loginEmail" class="auth-input" type="email" placeholder="Email" autocomplete="email" />
       <input id="loginPassword" class="auth-input" type="password" placeholder="Password" autocomplete="current-password" />
       <p id="loginError" class="auth-error"></p>
       <button id="loginSubmit" class="auth-submit">Log In</button>
@@ -79,14 +79,18 @@ import { Image } from "astro:assets";
     return getRole() === "admin";
   }
 
-  function storeUserData(token: string, username: string) {
+  function storeUserData(token: string, displayName: string) {
     localStorage.setItem("access_token", token);
-    localStorage.setItem("username", username);
+    localStorage.setItem("username", displayName);
     try {
       const payload = JSON.parse(atob(token.split(".")[1]));
-      localStorage.setItem("user_role", payload.role || "");
+      const role = payload?.app_metadata?.role || payload?.role || "user";
+      localStorage.setItem("user_role", role);
+      if (payload?.email && !displayName) {
+        localStorage.setItem("username", payload.email.split("@")[0]);
+      }
     } catch {
-      localStorage.setItem("user_role", "");
+      localStorage.setItem("user_role", "user");
     }
   }
 
@@ -134,7 +138,7 @@ import { Image } from "astro:assets";
   document.getElementById("showLogin")?.addEventListener("click", (e) => { e.preventDefault(); showModal("login"); });
 
   document.getElementById("loginSubmit")?.addEventListener("click", async () => {
-    const username = (document.getElementById("loginUsername") as HTMLInputElement).value;
+    const email = (document.getElementById("loginEmail") as HTMLInputElement).value.trim();
     const password = (document.getElementById("loginPassword") as HTMLInputElement).value;
     const errorEl = document.getElementById("loginError") as HTMLParagraphElement;
     errorEl.textContent = "";
@@ -142,14 +146,14 @@ import { Image } from "astro:assets";
       const res = await fetch(`${BACKEND}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ email, password }),
       });
       const data = await res.json();
       if (!res.ok) {
         errorEl.textContent = data.detail || "Login failed";
         return;
       }
-      storeUserData(data.access_token, username);
+      storeUserData(data.access_token, email.split("@")[0]);
       hideModal();
       updateUI();
     } catch {
@@ -158,8 +162,8 @@ import { Image } from "astro:assets";
   });
 
   document.getElementById("regSubmit")?.addEventListener("click", async () => {
-    const username = (document.getElementById("regUsername") as HTMLInputElement).value;
-    const email = (document.getElementById("regEmail") as HTMLInputElement).value;
+    const username = (document.getElementById("regUsername") as HTMLInputElement).value.trim();
+    const email = (document.getElementById("regEmail") as HTMLInputElement).value.trim();
     const password = (document.getElementById("regPassword") as HTMLInputElement).value;
     const errorEl = document.getElementById("regError") as HTMLParagraphElement;
     errorEl.textContent = "";
@@ -177,7 +181,7 @@ import { Image } from "astro:assets";
       const loginRes = await fetch(`${BACKEND}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ email, password }),
       });
       const loginData = await loginRes.json();
       if (loginRes.ok) {

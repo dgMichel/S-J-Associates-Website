@@ -1,64 +1,61 @@
 import uvicorn
+import os
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.middleware import SlowAPIMiddleware
 from src.rate_limit import limiter
 from src.routes import api_router
+from src.db.supabase import get_supabase_admin
+from src.config import ADMIN_EMAIL, ADMIN_PASSWORD
 from dotenv import load_dotenv
-import os
-from contextlib import asynccontextmanager
-from sqlalchemy import select
-from src.db.session import SessionLocal, engine, Base
-from src.db import models
-from src.db.models import UserRole
-from src.utils import auth
+
 load_dotenv()
-admin_email = os.getenv("ADMIN_EMAIL", "admin@example.com")
-admin_password = os.getenv("ADMIN_PASSWORD", "admin123")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    async with SessionLocal() as db:
-        result = await db.execute(select(models.User).filter(models.User.username == "admin"))
-        admin_user = result.scalars().first()
-        if not admin_user:
+    sb = get_supabase_admin()
+    try:
+        listed = sb.auth.admin.list_users()
+        users = getattr(listed, "users", listed) or []
+        if not any(getattr(u, "email", None) == ADMIN_EMAIL for u in users):
             print("Creating default admin user...")
-            hashed_pw = auth.get_password_hash(admin_password)
-            admin = models.User(
-                username="admin",
-                email=admin_email,
-                hashed_password=hashed_pw,
-                role=UserRole.ADMIN,
-                is_active=True,
-            )
-            db.add(admin)
-            await db.commit()
+            sb.auth.admin.create_user({
+                "email": ADMIN_EMAIL,
+                "password": ADMIN_PASSWORD,
+                "email_confirm": True,
+                "user_metadata": {"username": "admin"},
+                "app_metadata": {"role": "admin", "is_active": True},
+            })
             print("Default admin user created successfully.")
         else:
             print("Admin user already exists.")
+    except Exception as e:
+        print(f"Admin bootstrap error: {e}")
     yield
+
 
 app = FastAPI(
     title="EcoTrans API",
     description="Sistema de Monitoreo y Análisis de la Red de Transporte Urbano",
     version="1.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 app.state.limiter = limiter
 app.add_exception_handler(429, _rate_limit_exceeded_handler)
 
-o = os.getenv("ORIGINS","").split(',')
-origins = [
+o = [x.strip() for x in os.getenv("ORIGINS", "").split(",") if x.strip()]
+origins = o or [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "http://localhost:3001",
     "http://127.0.0.1:3001",
-] if not o else o
+    "http://localhost:4321",
+    "http://127.0.0.1:4321",
+]
 
 app.add_middleware(
     CORSMiddleware,
@@ -70,9 +67,11 @@ app.add_middleware(
 
 app.add_middleware(SlowAPIMiddleware)
 
+
 @app.get("/")
 async def root():
     return {"status": "ok", "app": "RentCars api", "docs": "/docs"}
+
 
 app.include_router(api_router)
 

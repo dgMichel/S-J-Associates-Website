@@ -39,7 +39,7 @@ const {
     <h3>{color} {brand} {model}</h3>
     <span class="plate">{plate}</span>
     <div class="card-footer">
-      <span class="price">EC${pricePerDay}<span>/day</span></span>
+      <span class="price" data-price-slug={slug} data-base-price={pricePerDay}>EC${pricePerDay}<span>/day</span></span>
       {
         available ? (
           <span class="view-btn">View</span>

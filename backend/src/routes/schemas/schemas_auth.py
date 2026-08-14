@@ -1,32 +1,30 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel
 from typing import Optional
 
-class UserBase(BaseModel):
+
+class RegisterRequest(BaseModel):
     username: str
     email: str
-
-class UserCreate(UserBase):
     password: str
+
 
 class UserLogin(BaseModel):
-    username: str
+    email: str
     password: str
 
-class UserResponse(UserBase):
-    id: int
+
+class UserResponse(BaseModel):
+    id: str
+    username: str
+    email: str
     role: str
     is_active: bool
 
-    model_config = ConfigDict(from_attributes=True)
 
 class Token(BaseModel):
     access_token: str
     token_type: str
 
-class TokenData(BaseModel):
-    username: Optional[str] = None
-    role: Optional[str] = None
 
 class RoleUpdate(BaseModel):
     role: str
-
