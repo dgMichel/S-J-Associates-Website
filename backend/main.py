@@ -56,7 +56,7 @@ origins = o or [
     "http://localhost:4321",
     "http://127.0.0.1:4321",
 ]
-
+origins=["*"]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
