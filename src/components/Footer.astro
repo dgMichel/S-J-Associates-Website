@@ -1,57 +1,83 @@
 ---
 import logoSvg from "../assets/file-1.svg";
 import { Image } from "astro:assets";
-const phone = import.meta.env.PHONE || "+1 (473) 403-6877";
-const email = import.meta.env.EMAIL || "dagaba211@gmail.com";
+import { SITE } from "../consts";
+const phone = import.meta.env.PHONE || SITE.phone;
+const email = import.meta.env.EMAIL || SITE.email;
+const mapsUrl = SITE.mapsUrl;
 ---
 
-<footer id="contact">
+<footer id="contact" role="contentinfo" itemscope itemtype="https://schema.org/AutoRental">
   <div class="container">
     <div class="footer-grid">
       <div class="footer-brand">
-  <a href="/" class="logo">
-    <Image
-      src={logoSvg}
-      alt="5J & Associates"
-      width="300"
-      height="300"
-      loading="eager"
-      fetchpriority="high"
-    />
-  </a>
+        <a href="/" class="logo" aria-label="5J & Associates - Home">
+          <Image
+            src={logoSvg}
+            alt="5J & Associates - Car rental in Grenada"
+            width="300"
+            height="300"
+            loading="eager"
+            fetchpriority="high"
+          />
+        </a>
 
-  <div class="footer-brand-text">
-    <h3>5J & Associates</h3>
-    <p>
-      Your trusted partner for reliable car rental services in Grenada
-    </p>
-  </div>
-</div>
-      <div class="footer-links">
-        <h4>Quick Links</h4>
-        <a href="/#suzuki">Suzuki Ignis</a>
-        <a href="/#nissan">Nissan Cube</a>
+        <div class="footer-brand-text">
+          <h3 itemprop="name">5J & Associates</h3>
+          <p itemprop="description">
+            Your trusted partner for reliable car rental services in Grenada. Suzuki Ignis and Nissan Cube rentals from EC$150 per day.
+          </p>
+        </div>
       </div>
-      <div class="footer-contact">
+
+      <nav class="footer-links" aria-label="Fleet navigation">
+        <h4>Our Fleet</h4>
+        <a href="/#suzuki">Suzuki Ignis Rentals</a>
+        <a href="/#nissan">Nissan Cube Rentals</a>
+        <a href="/#faq">FAQs</a>
+      </nav>
+
+      <div class="footer-contact" itemprop="address" itemscope itemtype="https://schema.org/PostalAddress">
         <h4>Contact</h4>
         <p>
-          <a href="mailto:info@5J-associates.com">{email}</a>
+          <strong>Hours:</strong>
+          <span>Open 24/7 — every day</span>
         </p>
-        <p><a href="tel:+1 (473) 403-6877">{phone}</a></p>
+        <p>
+          <strong>Location:</strong>
+          <a
+            href={SITE.mapsUrl}
+            target="_blank"
+            rel="noreferrer noopener"
+            itemprop="addressLocality"
+          >
+            <span>St. George's</span>, <span itemprop="addressCountry">Grenada</span> ↗
+          </a>
+        </p>
+        <p>
+          <strong>Email:</strong>
+          <a href={`mailto:${email}`} itemprop="email">{email}</a>
+        </p>
+        <p>
+          <strong>Phone:</strong>
+          <a href={`tel:${phone.replace(/[^+\d]/g, '')}`} itemprop="telephone">{phone}</a>
+        </p>
         <p>
           <a
             class="whatsapp-btn"
-            href="https://wa.me/14734046549?text=Hello%20I%20would%20like%20to%20contact%20you%20via%20WhatsApp"            target="_blank"
+            href="https://wa.me/14734046549?text=Hello%20I%20would%20like%20to%20book%20a%20car%20rental%20in%20Grenada"
+            target="_blank"
             rel="noreferrer noopener"
+            aria-label="Contact us on WhatsApp"
           >
-            Contact via WhatsApp
+            Book via WhatsApp
           </a>
         </p>
       </div>
     </div>
     <div class="footer-bottom">
       <p>
-        &copy; {new Date().getFullYear()} 5J & Associates. All rights reserved.
+        &copy; {new Date().getFullYear()} 5J & Associates. All rights reserved. | Car rental in St. George's, Grenada.
       </p>
     </div>
   </div>
@@ -147,6 +173,16 @@ const email = import.meta.env.EMAIL || "dagaba211@gmail.com";
 
   .footer-contact a:hover {
     color: white;
+  }
+
+  .footer-contact p strong {
+    color: rgba(255, 255, 255, 0.4);
+    font-weight: 600;
+    margin-right: 6px;
+  }
+
+  .footer-contact p span {
+    color: rgba(255, 255, 255, 0.85);
   }
 
   .whatsapp-btn {

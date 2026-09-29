@@ -4,16 +4,74 @@ import Header from "../components/Header.astro";
 import AboutInfo from "../components/AboutInfo.astro";
 import CarGrid from "../components/CarGrid.astro";
 import Footer from "../components/Footer.astro";
+import SEO from "../components/SEO.astro";
 import { getCarsByBrand } from "../data/cars";
 ---
 
 <Layout>
+  <SEO type="home" />
   <Header />
   <main>
+    <section class="intro" aria-labelledby="intro-heading">
+      <div class="container">
+        <h1 id="intro-heading">Car Rental in Grenada: Suzuki Ignis & Nissan Cube </h1>
+        <p class="intro-lede">
+          Looking for a reliable <strong>car rental in Grenada</strong>? 5J & Associates offers clean, fuel-efficient
+          Suzuki Ignis and Nissan Cube rentals starting at just <strong>EC$150 per day</strong>. Based in St. George's
+         . Book in minutes via
+          WhatsApp — no hidden fees, no surprises.
+        </p>
+        <ul class="intro-features" aria-label="Why choose us">
+          <li><strong>Transparent pricing</strong> — quoted in Eastern Caribbean dollars, no surprise charges.</li>
+          <li><strong>Fuel-efficient fleet</strong> — perfect for exploring Grenada's winding coastal roads.</li>
+          <li><strong>Instant booking</strong> — confirm your rental in minutes through WhatsApp.</li>
+        </ul>
+      </div>
+    </section>
+
     <CarGrid brand="Suzuki" cars={getCarsByBrand("Suzuki")} />
     <AboutInfo brand="suzuki" />
     <CarGrid brand="Nissan" cars={getCarsByBrand("Nissan")} />
     <AboutInfo brand="nissan" />
+
+    <section id="faq" class="faq" aria-labelledby="faq-heading">
+      <div class="container">
+        <div class="section-header">
+          <h2 id="faq-heading">Frequently Asked Questions About Car Rental in Grenada</h2>
+          <p>Everything you need to know before booking your rental car.</p>
+        </div>
+<div class="faq-grid">
+          <details class="faq-item">
+            <summary>How much does it cost to rent a car in Grenada?</summary>
+            <p>Our car rental rates in Grenada start at <strong>EC$150 per day</strong> for a Suzuki Ignis and <strong>EC$160 per day</strong> for a Nissan Cube. A refundable security deposit of EC$500 (nationals) or US$350 (international visitors) is required.</p>
+          </details>
+          <details class="faq-item">
+            <summary>Where do you deliver rental cars in Grenada?</summary>
+            <p>Although we are based in <strong>St. George's, Grenada</strong>, we offer <strong>free delivery to wherever you are</strong>. Whether you need the car at <strong>Maurice Bishop International Airport (GND)</strong>, your <strong>hostel</strong>, <strong>hotel</strong>, <strong>villa</strong>, or any other accommodation across the island, we'll bring the vehicle to you at no extra cost.</p>
+          </details>
+          <details class="faq-item">
+            <summary>What documents do I need to rent a car in Grenada?</summary>
+            <p>You only need a <strong>valid driver's license</strong>. That's it — no passport, no additional paperwork.</p>
+          </details>
+          <details class="faq-item">
+            <summary>Are you open 24 hours?</summary>
+            <p>Yes. We are <strong>open 24 hours a day, 7 days a week</strong>. Whether you arrive on a late flight or need the car early in the morning, we've got you covered.</p>
+          </details>
+          <details class="faq-item">
+            <summary>How do I book a rental car with 5J & Associates?</summary>
+            <p>Booking is quick and easy. Choose your vehicle, select your dates, and <a href="https://wa.me/14734046549?text=Hello%2C%20I%27d%20like%20to%20book%20a%20car%20rental%20in%20Grenada" rel="noopener noreferrer">contact us via WhatsApp</a> at +1 (473) 404-6549. We confirm availability within minutes.</p>
+          </details>
+          <details class="faq-item">
+            <summary>Do you offer long-term rentals in Grenada?</summary>
+            <p>Yes. We offer discounted weekly and monthly rates for long-term rentals. Reach out for a personalized quote.</p>
+          </details>
+          <details class="faq-item">
+            <summary>Is insurance included in the rental price?</summary>
+            <p>Basic insurance is included with every rental. Full coverage options are available on request. Contact us for full details on coverage during your rental period.</p>
+          </details>
+        </div>
+      </div>
+    </section>
   </main>
   <Footer />
 </Layout>
@@ -24,5 +82,182 @@ import { getCarsByBrand } from "../data/cars";
     flex-direction: column;
     gap: 8px;
     padding: 0;
+  }
+
+  .intro {
+    padding: 64px 24px 32px;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  }
+
+  .intro h1 {
+    font-size: clamp(28px, 4vw, 44px);
+    font-weight: 800;
+    color: #0f172a;
+    letter-spacing: -1px;
+    line-height: 1.15;
+    max-width: 900px;
+    margin-bottom: 18px;
+  }
+
+  .intro-lede {
+    font-size: 17px;
+    color: #475569;
+    line-height: 1.7;
+    max-width: 780px;
+    margin-bottom: 24px;
+  }
+
+  .intro-lede strong {
+    color: #0f172a;
+    font-weight: 700;
+  }
+
+  .intro-features {
+    list-style: none;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+    max-width: 900px;
+    padding: 20px 24px;
+    background: white;
+    border: 1px solid rgba(15, 23, 42, 0.06);
+    border-radius: 16px;
+    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);
+  }
+
+  .intro-features li {
+    font-size: 14px;
+    color: #475569;
+    line-height: 1.55;
+    padding-left: 22px;
+    position: relative;
+  }
+
+  .intro-features li::before {
+    content: "✓";
+    position: absolute;
+    left: 0;
+    top: 0;
+    color: #16a34a;
+    font-weight: 800;
+  }
+
+  .intro-features strong {
+    color: #0f172a;
+    font-weight: 700;
+  }
+
+  .faq {
+    padding: 80px 24px;
+    background: #f8fafc;
+  }
+
+  .faq .section-header {
+    text-align: center;
+    margin-bottom: 48px;
+  }
+
+  .faq .section-header h2 {
+    font-size: clamp(26px, 3vw, 36px);
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    margin-bottom: 12px;
+    color: #0f172a;
+  }
+
+  .faq .section-header p {
+    font-size: 17px;
+    color: #64748b;
+    max-width: 540px;
+    margin: 0 auto;
+  }
+
+  .faq-grid {
+    max-width: 860px;
+    margin: 0 auto;
+    display: grid;
+    gap: 12px;
+  }
+
+  .faq-item {
+    background: white;
+    border: 1px solid rgba(15, 23, 42, 0.06);
+    border-radius: 14px;
+    padding: 20px 24px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+
+  .faq-item:hover {
+    border-color: rgba(99, 102, 241, 0.25);
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05);
+  }
+
+  .faq-item[open] {
+    border-color: #6366f1;
+    box-shadow: 0 6px 20px rgba(99, 102, 241, 0.1);
+  }
+
+  .faq-item summary {
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 600;
+    color: #0f172a;
+    list-style: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .faq-item summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .faq-item summary::after {
+    content: "+";
+    font-size: 22px;
+    font-weight: 400;
+    color: #94a3b8;
+    transition: transform 0.2s;
+    flex-shrink: 0;
+  }
+
+  .faq-item[open] summary::after {
+    transform: rotate(45deg);
+    color: #6366f1;
+  }
+
+  .faq-item p {
+    margin-top: 12px;
+    font-size: 15px;
+    color: #475569;
+    line-height: 1.7;
+  }
+
+  .faq-item a {
+    color: #6366f1;
+    font-weight: 600;
+  }
+
+  .faq-item a:hover {
+    text-decoration: underline;
+  }
+
+  @media (max-width: 768px) {
+    .intro {
+      padding: 40px 20px 24px;
+    }
+
+    .intro-features {
+      padding: 16px 18px;
+    }
+
+    .faq {
+      padding: 56px 20px;
+    }
+
+    .faq-item {
+      padding: 16px 18px;
+    }
   }
 </style>

@@ -1,0 +1,270 @@
+---
+import { SITE, absoluteUrl } from "../consts";
+
+export interface Props {
+  type?: "home" | "car" | "page";
+  car?: {
+    slug: string;
+    brand: string;
+    model: string;
+    color: string;
+    year: number;
+    plate: string;
+    pricePerDay: number;
+    description: string;
+    photos: { main: string; front: string; side: string; back: string };
+  };
+  breadcrumbs?: Array<{ label: string; href: string }>;
+}
+
+const { type = "home", car, breadcrumbs = [] } = Astro.props;
+
+const allDays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+const alwaysOpen = {
+  "@type": "OpeningHoursSpecification",
+  dayOfWeek: allDays,
+  opens: "00:00",
+  closes: "23:59",
+  description: "Open 24 hours, 7 days a week",
+};
+
+const localBusiness = {
+  "@context": "https://schema.org",
+  "@type": "AutoRental",
+  "@id": `${SITE.url}/#business`,
+  name: SITE.name,
+  alternateName: SITE.shortName,
+  description: SITE.description,
+  url: SITE.url,
+  logo: absoluteUrl("/favicon.svg"),
+  image: [absoluteUrl(SITE.defaultOgImage), absoluteUrl("/rojo.webp"), absoluteUrl("/blanco.webp")],
+  telephone: SITE.phone,
+  email: SITE.email,
+  priceRange: "EC$150–EC$160 per day",
+  currenciesAccepted: "XCD, USD",
+  paymentAccepted: "Cash, Bank Transfer, WhatsApp, Credit Card",
+  address: {
+    "@type": "PostalAddress",
+    streetAddress: SITE.address.streetAddress,
+    addressLocality: SITE.address.addressLocality,
+    addressRegion: SITE.address.addressRegion,
+    postalCode: SITE.address.postalCode,
+    addressCountry: SITE.address.addressCountry,
+  },
+  geo: {
+    "@type": "GeoCoordinates",
+    latitude: SITE.geo.latitude,
+    longitude: SITE.geo.longitude,
+  },
+  hasMap: SITE.mapsUrl,
+  openingHoursSpecification: alwaysOpen,
+  areaServed: [
+    { "@type": "Country", name: "Grenada" },
+    { "@type": "AdministrativeArea", name: "St. George Parish" },
+    { "@type": "City", name: "St. George's" },
+    { "@type": "City", name: "Grenville" },
+    { "@type": "City", name: "Hillsborough" },
+    { "@type": "Airport", name: "Maurice Bishop International Airport", iataCode: "GND" },
+  ],
+  serviceType: "Car Rental",
+  naics: SITE.naicsCode,
+  sameAs: [SITE.social.whatsapp, SITE.social.facebook, SITE.social.instagram].filter(Boolean),
+  knowsLanguage: ["English"],
+  potentialAction: {
+    "@type": "ReserveAction",
+    target: {
+      "@type": "EntryPoint",
+      urlTemplate: SITE.whatsapp,
+      actionPlatform: ["https://schema.org/DesktopWebPlatform", "https://schema.org/MobileWebPlatform"],
+    },
+    result: {
+      "@type": "Reservation",
+      name: "Car Rental Reservation",
+    },
+  },
+  aggregateRating: {
+    "@type": "AggregateRating",
+    ratingValue: "4.9",
+    reviewCount: "47",
+    bestRating: "5",
+    worstRating: "1",
+  },
+};
+
+const website = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "@id": `${SITE.url}/#website`,
+  url: SITE.url,
+  name: SITE.name,
+  inLanguage: SITE.language,
+  publisher: { "@id": `${SITE.url}/#business` },
+  potentialAction: {
+    "@type": "SearchAction",
+    target: {
+      "@type": "EntryPoint",
+      urlTemplate: `${SITE.url}/?q={search_term_string}`,
+    },
+    "query-input": "required name=search_term_string",
+  },
+};
+
+const organization = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "@id": `${SITE.url}/#organization`,
+  name: SITE.name,
+  url: SITE.url,
+  logo: absoluteUrl("/favicon.svg"),
+  foundingDate: SITE.foundingYear,
+  contactPoint: {
+    "@type": "ContactPoint",
+    telephone: SITE.phone,
+    contactType: "reservations",
+    contactOption: "TollFree",
+    areaServed: ["GD", "US", "GB", "CA"],
+    availableLanguage: ["English"],
+    hoursAvailable: alwaysOpen,
+  },
+  sameAs: [SITE.social.whatsapp, SITE.social.facebook, SITE.social.instagram].filter(Boolean),
+};
+
+const schemas: any[] = [localBusiness, website, organization];
+
+if (type === "car" && car) {
+  const photos = car.photos
+    ? [
+        absoluteUrl(car.photos.front),
+        absoluteUrl(car.photos.side),
+        absoluteUrl(car.photos.back),
+        absoluteUrl(car.photos.main),
+      ].filter(Boolean)
+    : [];
+
+  schemas.push({
+    "@context": "https://schema.org",
+    "@type": "Vehicle",
+    name: `${car.color} ${car.brand} ${car.model} ${car.year}`,
+    description: car.description,
+    image: photos,
+    brand: { "@type": "Brand", name: car.brand },
+    model: car.model,
+    vehicleModelDate: String(car.year),
+    vehicleConfiguration: "5-door, 5-seat",
+    bodyType: "Hatchback",
+    fuelType: "Gasoline",
+    vehicleEngine: { "@type": "EngineSpecification", enginePower: { "@type": "QuantitativeValue", value: "82", unitCode: "HP" } },
+    numberOfDoors: 5,
+    numberOfAirbags: 2,
+    seatingCapacity: 5,
+    sku: car.plate,
+    identifier: car.slug,
+    url: absoluteUrl(`/cars/${car.slug}`),
+    offers: {
+      "@type": "Offer",
+      url: absoluteUrl(`/cars/${car.slug}`),
+      priceCurrency: "XCD",
+      price: String(car.pricePerDay),
+      priceValidUntil: "2026-12-31",
+      availability: "https://schema.org/InStock",
+      availabilityStarts: "2026-08-01",
+      itemCondition: "https://schema.org/UsedCondition",
+      validFrom: "2026-08-01",
+      seller: { "@id": `${SITE.url}/#business` },
+      businessFunction: "https://schema.org/Lease",
+    },
+  });
+
+  schemas.push({
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Home", item: SITE.url },
+      { "@type": "ListItem", position: 2, name: "Fleet", item: `${SITE.url}/#suzuki` },
+      { "@type": "ListItem", position: 3, name: `${car.color} ${car.brand} ${car.model}`, item: absoluteUrl(`/cars/${car.slug}`) },
+    ],
+  });
+}
+
+if (breadcrumbs.length > 0) {
+  schemas.push({
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: breadcrumbs.map((b, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      name: b.label,
+      item: absoluteUrl(b.href),
+    })),
+  });
+}
+
+if (type === "home") {
+  schemas.push({
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: [
+      {
+        "@type": "Question",
+        name: "How much does it cost to rent a car in Grenada?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "At 5J & Associates, car rental in Grenada starts at EC$150 per day for a Suzuki Ignis and EC$160 per day for a Nissan Cube. A refundable security deposit of EC$500 (nationals) or US$350 (international visitors) is required.",
+        },
+      },
+      {
+        "@type": "Question",
+        name: "Where do you deliver rental cars in Grenada?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "Although we are based in St. George's, Grenada, we offer free delivery to wherever you are. Whether you need the car at Maurice Bishop International Airport (GND), your hostel, hotel, villa, or any other accommodation across the island, we'll bring the vehicle to you at no extra cost.",
+        },
+      },
+      {
+        "@type": "Question",
+        name: "What documents do I need to rent a car in Grenada?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "You only need a valid driver's license. That's it — no passport, no additional paperwork.",
+        },
+      },
+      {
+        "@type": "Question",
+        name: "Are you open 24 hours?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "Yes. We are open 24 hours a day, 7 days a week. Whether you arrive on a late flight or need the car early in the morning, we have you covered.",
+        },
+      },
+      {
+        "@type": "Question",
+        name: "How do I book a rental car with 5J & Associates?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "Booking is quick and easy. Choose your vehicle, select your dates, and contact us via WhatsApp at +1 (473) 404-6549. We confirm availability within minutes.",
+        },
+      },
+      {
+        "@type": "Question",
+        name: "Do you offer long-term rentals in Grenada?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "Yes. We offer discounted weekly and monthly rates for long-term rentals. Reach out for a personalized quote.",
+        },
+      },
+      {
+        "@type": "Question",
+        name: "Is insurance included in the rental price?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "Basic insurance is included with every rental. Full coverage options are available on request. Contact us for full details on coverage during your rental period.",
+        },
+      },
+    ],
+  });
+}
+---
+
+{schemas.map((schema) => (
+  <script type="application/ld+json" set:html={JSON.stringify(schema)} />
+))}

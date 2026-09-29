@@ -69,7 +69,7 @@ const carsJson = JSON.stringify(cars.map(c => ({
     const userRole = tokenPayload?.app_metadata?.role || tokenPayload?.role;
     if (!tokenPayload || userRole !== "admin") {
       const main = document.querySelector("main") as HTMLElement;
-      main.innerHTML = `<div style="min-height:80vh;display:flex;align-items:center;justify-content:center"><div style="text-align:center;max-width:400px"><h1 style="font-size:24px;font-weight:700;color:#0f172a;margin-bottom:8px">Access Denied</h1><p style="color:#64748b;margin-bottom:24px">You need admin privileges to access this page.</p><a href="/" style="display:inline-block;padding:12px 28px;background:#0f172a;color:white;border-radius:10px;font-weight:600;text-decoration:none">Go Home</a></div></div>`;
+      main.innerHTML = `<div style="min-height:80vh;display:flex;align-items:center;justify-content:center;padding:24px"><div style="text-align:center;max-width:440px;background:white;padding:48px 36px;border-radius:20px;border:1px solid rgba(15,23,42,0.06);box-shadow:0 20px 60px rgba(15,23,42,0.08);position:relative;overflow:hidden"><div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#dc2626 0%,#b91c1c 100%)"></div><div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#fef2f2 0%,#fee2e2 100%);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;border:2px solid #fecaca"><span style="font-size:32px;color:#dc2626;font-weight:700">🔒</span></div><h1 style="font-size:28px;font-weight:800;color:#0f172a;margin-bottom:10px;letter-spacing:-0.5px">Access Denied</h1><p style="color:#64748b;margin-bottom:28px;font-size:15px;line-height:1.6">You need admin privileges to access this page.</p><a href="/" style="display:inline-flex;align-items:center;gap:8px;padding:13px 28px;background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%);color:white;border-radius:12px;font-weight:600;text-decoration:none;font-size:15px;box-shadow:0 4px 14px rgba(15,23,42,0.25);transition:all 0.2s" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 20px rgba(15,23,42,0.35)'" onmouseout="this.style.transform='';this.style.boxShadow='0 4px 14px rgba(15,23,42,0.25)'">← Go Home</a></div></div>`;
       return;
     }
 
@@ -208,15 +208,6 @@ const carsJson = JSON.stringify(cars.map(c => ({
 
     function renderAvailabilityCard(car: CarRow, list: Unavailable[]) {
       const sorted = [...list].sort((a, b) => a.date.localeCompare(b.date));
-      const chips = sorted.length
-        ? sorted.map((d) => `
-            <span class="date-chip" data-date="${d.date}" data-id="${d.id}">
-              <span class="date-chip__label">${d.date}</span>
-              <span class="date-chip__sub">${formatLongDate(d.date)}</span>
-              <button type="button" class="date-chip__remove" aria-label="Remove ${d.date}">×</button>
-            </span>
-          `).join("")
-        : `<p class="empty-state">No unavailable dates yet.</p>`;
 
       return `
         <div class="avail-card" data-slug="${car.slug}">
@@ -249,8 +240,12 @@ const carsJson = JSON.stringify(cars.map(c => ({
             <button type="button" class="avail-add-btn avail-add-range-unblock">Unblock range</button>
           </div>
 
-          <div class="avail-card__list">
-            ${chips}
+          <div class="avail-calendar-wrap">
+            <div class="avail-calendar-label">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+              <span>Availability Calendar</span>
+            </div>
+            <div class="avail-calendar" data-calendar></div>
           </div>
         </div>
       `;
@@ -267,7 +262,7 @@ const carsJson = JSON.stringify(cars.map(c => ({
         try {
           const list = await loadAvailability(car.slug);
           wrapper.innerHTML = renderAvailabilityCard(car, list);
-          wireAvailabilityCard(wrapper, car.slug);
+          wireAvailabilityCard(wrapper, car.slug, list);
         } catch (e: any) {
           if (e?.message !== "unauthorized") {
             wrapper.innerHTML = `<p style="color:#dc2626;font-size:13px;padding:12px">Could not load availability.</p>`;
@@ -294,7 +289,144 @@ const carsJson = JSON.stringify(cars.map(c => ({
       }
     }
 
-    function wireAvailabilityCard(scope: HTMLElement, slug: string) {
+    function renderAdminCalendar(scope: HTMLElement, unavailable: string[]) {
+      const calEl = scope.querySelector<HTMLElement>("[data-calendar]");
+      if (!calEl) return;
+
+      const unavailableDates = new Set(unavailable);
+      const today = new Date();
+      let currentMonth = today.getMonth();
+      let currentYear = today.getFullYear();
+
+      const monthNames = [
+        "January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December",
+      ];
+      const weekdayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+      function formatLocalDate(y: number, m: number, d: number) {
+        const date = new Date(y, m, d);
+        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+      }
+
+      function isPast(iso: string) {
+        const t = new Date();
+        t.setHours(0, 0, 0, 0);
+        const [y, m, d] = iso.split("-").map(Number);
+        return new Date(y, m - 1, d).getTime() < t.getTime();
+      }
+
+      function isToday(iso: string) {
+        const t = new Date();
+        return iso === formatLocalDate(t.getFullYear(), t.getMonth(), t.getDate());
+      }
+
+      function render(month: number, year: number) {
+        const firstDay = new Date(year, month, 1).getDay();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const totalCells = Math.ceil((firstDay + daysInMonth) / 7) * 7;
+
+        calEl.innerHTML = "";
+
+        const header = document.createElement("div");
+        header.className = "calendar-header";
+        header.innerHTML = `
+          <button class="cal-nav" type="button" aria-label="Previous month" data-cal-nav="prev">‹</button>
+          <div class="cal-title">${monthNames[month]} ${year}</div>
+          <button class="cal-nav" type="button" aria-label="Next month" data-cal-nav="next">›</button>
+        `;
+        calEl.appendChild(header);
+
+        const table = document.createElement("table");
+        table.className = "calendar-table";
+
+        const thead = document.createElement("thead");
+        const headRow = document.createElement("tr");
+        weekdayNames.forEach((name) => {
+          const th = document.createElement("th");
+          th.textContent = name;
+          headRow.appendChild(th);
+        });
+        thead.appendChild(headRow);
+        table.appendChild(thead);
+
+        const tbody = document.createElement("tbody");
+        let dayNumber = 1;
+
+        for (let row = 0; row < totalCells / 7; row++) {
+          const tr = document.createElement("tr");
+
+          for (let col = 0; col < 7; col++) {
+            const cellIndex = row * 7 + col;
+            const td = document.createElement("td");
+            td.className = "calendar-cell";
+
+            if (cellIndex < firstDay || dayNumber > daysInMonth) {
+              td.classList.add("empty");
+              tr.appendChild(td);
+              continue;
+            }
+
+            const date = new Date(year, month, dayNumber);
+            const iso = formatLocalDate(date.getFullYear(), date.getMonth(), date.getDate());
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "day-btn";
+            btn.textContent = String(dayNumber);
+
+            if (isToday(iso)) btn.classList.add("today");
+
+            if (isPast(iso)) {
+              btn.classList.add("past");
+              btn.disabled = true;
+            } else if (unavailableDates.has(iso)) {
+              btn.classList.add("unavailable");
+              btn.disabled = true;
+            }
+
+            td.appendChild(btn);
+            tr.appendChild(td);
+            dayNumber++;
+          }
+
+          tbody.appendChild(tr);
+        }
+
+        table.appendChild(tbody);
+        calEl.appendChild(table);
+
+        const legend = document.createElement("div");
+        legend.className = "calendar-legend";
+        legend.innerHTML = `
+          <span><span class="dot dot--available"></span>Available</span>
+          <span><span class="dot dot--selected"></span>Today</span>
+          <span><span class="dot dot--unavailable"></span>Blocked</span>
+        `;
+        calEl.appendChild(legend);
+
+        calEl.querySelector<HTMLButtonElement>("[data-cal-nav='prev']")?.addEventListener("click", () => {
+          currentMonth--;
+          if (currentMonth < 0) {
+            currentMonth = 11;
+            currentYear--;
+          }
+          render(currentMonth, currentYear);
+        });
+
+        calEl.querySelector<HTMLButtonElement>("[data-cal-nav='next']")?.addEventListener("click", () => {
+          currentMonth++;
+          if (currentMonth > 11) {
+            currentMonth = 0;
+            currentYear++;
+          }
+          render(currentMonth, currentYear);
+        });
+      }
+
+      render(currentMonth, currentYear);
+    }
+
+    function wireAvailabilityCard(scope: HTMLElement, slug: string, list: Unavailable[]) {
       const modeBtns = scope.querySelectorAll<HTMLButtonElement>(".mode-btn");
       const singleBox = scope.querySelector<HTMLElement>(".avail-card__add--single")!;
       const rangeBoxes = scope.querySelectorAll<HTMLElement>(".avail-card__add--range");
@@ -387,24 +519,7 @@ const carsJson = JSON.stringify(cars.map(c => ({
         });
       });
 
-      scope.querySelectorAll<HTMLButtonElement>(".date-chip__remove").forEach((btn) => {
-        btn.addEventListener("click", async () => {
-          const chip = btn.closest(".date-chip") as HTMLElement;
-          const date = chip.dataset.date!;
-          try {
-            const res = await authedFetch(`${backendBase()}/cars/${slug}/unavailable/${date}`, {
-              method: "DELETE",
-            });
-            if (!res.ok && res.status !== 204) throw new Error(`HTTP ${res.status}`);
-            chip.style.opacity = "0";
-            chip.style.transform = "scale(0.9)";
-            setTimeout(() => refreshCard(slug), 200);
-            toast("Date is now available");
-          } catch (e: any) {
-            if (e?.message !== "unauthorized") toast(e.message || "Failed", "err");
-          }
-        });
-      });
+      renderAdminCalendar(scope, list.map((d) => d.date));
     }
 
     async function runAction(_slug: string, fn: () => Promise<void>) {
@@ -422,7 +537,7 @@ const carsJson = JSON.stringify(cars.map(c => ({
       const list = await loadAvailability(slug);
       card.outerHTML = renderAvailabilityCard(car, list);
       const fresh = document.querySelector<HTMLElement>(`.avail-card[data-slug="${slug}"]`);
-      if (fresh) wireAvailabilityCard(fresh, slug);
+      if (fresh) wireAvailabilityCard(fresh, slug, list);
     }
 
     renderPrices();
@@ -433,131 +548,223 @@ const carsJson = JSON.stringify(cars.map(c => ({
 <style>
   .admin-page {
     min-height: 100vh;
-    padding: 48px 24px;
+    padding: 56px 24px 80px;
+    background:
+      radial-gradient(80% 60% at 10% 0%, rgba(99, 102, 241, 0.08) 0%, transparent 60%),
+      radial-gradient(70% 50% at 100% 20%, rgba(16, 185, 129, 0.06) 0%, transparent 60%),
+      linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
   }
 
   .admin-container {
-    max-width: 760px;
+    max-width: 880px;
     margin: 0 auto;
   }
 
   .admin-header {
-    margin-bottom: 40px;
+    margin-bottom: 36px;
+    animation: fadeUp 0.4s ease;
   }
 
   .back-link {
     display: inline-flex;
     align-items: center;
+    gap: 6px;
     font-size: 14px;
     font-weight: 500;
     color: #64748b;
-    margin-bottom: 24px;
-    transition: color 0.2s;
+    margin-bottom: 20px;
+    padding: 8px 14px 8px 10px;
+    background: white;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    border-radius: 999px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    transition: all 0.2s ease;
   }
 
   .back-link:hover {
     color: #0f172a;
+    transform: translateX(-2px);
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+    border-color: rgba(15, 23, 42, 0.16);
   }
 
   .header-row {
     display: flex;
-    align-items: flex-end;
+    align-items: center;
     justify-content: space-between;
     gap: 16px;
     flex-wrap: wrap;
   }
 
   .admin-header h1 {
-    font-size: 32px;
-    font-weight: 700;
+    font-size: 36px;
+    font-weight: 800;
     color: #0f172a;
     margin-bottom: 6px;
+    letter-spacing: -0.8px;
+    background: linear-gradient(135deg, #0f172a 0%, #334155 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
   }
 
   .subtitle {
     font-size: 15px;
     color: #64748b;
+    font-weight: 400;
   }
 
   .header-logout {
-    background: transparent;
-    border: 1px solid #e2e8f0;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: white;
+    border: 1px solid rgba(15, 23, 42, 0.1);
     color: #475569;
-    padding: 8px 16px;
-    border-radius: 8px;
+    padding: 10px 18px;
+    border-radius: 10px;
     font-size: 13px;
-    font-weight: 500;
+    font-weight: 600;
     cursor: pointer;
     font-family: inherit;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    transition: all 0.2s ease;
+  }
+
+  .header-logout::before {
+    content: "⎋";
+    font-size: 16px;
+    line-height: 1;
   }
 
   .header-logout:hover {
-    background: #fef2f2;
-    border-color: #fecaca;
+    background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+    border-color: #fca5a5;
     color: #dc2626;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(220, 38, 38, 0.15);
   }
 
   .admin-card {
     background: white;
-    border: 1px solid rgba(0, 0, 0, 0.06);
-    border-radius: 16px;
-    padding: 32px;
+    border: 1px solid rgba(15, 23, 42, 0.06);
+    border-radius: 20px;
+    padding: 36px;
     margin-bottom: 24px;
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.8) inset,
+      0 4px 16px rgba(15, 23, 42, 0.04),
+      0 1px 4px rgba(15, 23, 42, 0.03);
+    position: relative;
+    overflow: hidden;
+    animation: fadeUp 0.5s ease;
+  }
+
+  .admin-card::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #6366f1 0%, #0f172a 50%, #16a34a 100%);
+    opacity: 0.6;
   }
 
   .admin-card h2 {
-    font-size: 20px;
-    font-weight: 600;
-    margin-bottom: 12px;
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 10px;
     color: #0f172a;
+    letter-spacing: -0.4px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .admin-card h2::before {
+    content: "";
+    display: inline-block;
+    width: 6px;
+    height: 22px;
+    border-radius: 4px;
+    background: linear-gradient(180deg, #6366f1 0%, #0f172a 100%);
   }
 
   .field-desc {
     font-size: 14px;
     color: #64748b;
     margin-bottom: 24px;
-    line-height: 1.6;
+    line-height: 1.65;
+    padding-left: 16px;
   }
 
   .save-msg {
     text-align: center;
-    margin-top: 12px;
+    margin-top: 16px;
     font-size: 14px;
-    font-weight: 500;
+    font-weight: 600;
+    padding: 10px 16px;
+    background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+    border: 1px solid #bbf7d0;
+    border-radius: 12px;
+    color: #15803d;
+    animation: fadeUp 0.3s ease;
   }
 
   .cars-table {
-    background: #f8fafc;
-    border-radius: 10px;
+    background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+    border: 1px solid rgba(15, 23, 42, 0.06);
+    border-radius: 16px;
     overflow: hidden;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.03) inset;
   }
 
   .cars-loading {
-    padding: 24px;
+    padding: 32px 24px;
     text-align: center;
     font-size: 14px;
     color: #94a3b8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+  }
+
+  .cars-loading::before {
+    content: "";
+    width: 14px;
+    height: 14px;
+    border: 2px solid #cbd5e1;
+    border-top-color: #6366f1;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
   }
 
   .cars-header,
   .car-row {
     display: grid;
-    grid-template-columns: 1fr 90px 110px auto;
-    gap: 8px;
+    grid-template-columns: 1.6fr 100px 130px auto;
+    gap: 12px;
     align-items: center;
-    padding: 12px 16px;
+    padding: 14px 20px;
     font-size: 14px;
   }
 
   .cars-header {
-    font-weight: 600;
-    color: #64748b;
-    background: #f1f5f9;
-    border-bottom: 1px solid #e2e8f0;
+    font-weight: 700;
+    color: #475569;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    border-bottom: 1px solid rgba(15, 23, 42, 0.06);
   }
 
   .car-row {
-    border-bottom: 1px solid #e2e8f0;
+    border-bottom: 1px solid rgba(15, 23, 42, 0.05);
+    transition: background 0.2s ease;
+  }
+
+  .car-row:hover {
+    background: rgba(99, 102, 241, 0.04);
   }
 
   .car-row:last-child {
@@ -569,88 +776,125 @@ const carsJson = JSON.stringify(cars.map(c => ({
   }
 
   .car-cell--wide {
-    font-weight: 500;
+    font-weight: 600;
+    letter-spacing: -0.1px;
   }
 
   .car-cell--action {
     text-align: right;
+    display: flex;
+    gap: 6px;
+    justify-content: flex-end;
   }
 
   .price-col {
     color: #475569;
     font-variant-numeric: tabular-nums;
+    font-weight: 500;
   }
 
   .prices-header .price-col {
     font-size: 11px;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.8px;
+    font-weight: 700;
   }
 
   .price-input {
-    width: 90px;
-    padding: 6px 10px;
-    border: 1px solid #e2e8f0;
-    border-radius: 6px;
+    width: 110px;
+    padding: 9px 12px;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 10px;
     font-size: 14px;
+    font-weight: 600;
     font-family: inherit;
+    color: #0f172a;
+    background: white;
     outline: none;
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .price-input:hover {
+    border-color: #cbd5e1;
   }
 
   .price-input:focus {
-    border-color: #0f172a;
+    border-color: #6366f1;
+    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.12);
   }
 
   .car-save-btn,
   .car-reset-btn {
-    padding: 6px 12px;
+    padding: 9px 16px;
     color: white;
     border: none;
-    border-radius: 6px;
+    border-radius: 10px;
     font-size: 13px;
-    font-weight: 500;
+    font-weight: 600;
     cursor: pointer;
     font-family: inherit;
-    margin-left: 4px;
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
   }
 
   .car-save-btn {
-    background: #0f172a;
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
   }
 
   .car-save-btn:hover {
-    background: #1e293b;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 14px rgba(15, 23, 42, 0.25);
+    background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+  }
+
+  .car-save-btn:active {
+    transform: translateY(0);
   }
 
   .car-save-btn:disabled {
-    background: #94a3b8;
+    background: #cbd5e1;
     cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
   }
 
   .car-reset-btn {
-    background: #94a3b8;
+    background: white;
+    color: #475569;
+    border: 1.5px solid #e2e8f0;
   }
 
   .car-reset-btn:hover {
-    background: #64748b;
+    background: #f8fafc;
+    border-color: #cbd5e1;
+    color: #0f172a;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(15, 23, 42, 0.08);
   }
 
   .availability-list {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 18px;
   }
 
   .avail-card {
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    border-radius: 12px;
-    padding: 18px 20px;
-    transition: border-color 0.2s;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    border: 1px solid rgba(15, 23, 42, 0.06);
+    border-radius: 16px;
+    padding: 20px 22px;
+    transition: all 0.25s ease;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.03);
+    position: relative;
+    overflow: hidden;
   }
 
   .avail-card:hover {
-    border-color: #cbd5e1;
+    border-color: rgba(99, 102, 241, 0.25);
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.07);
+    transform: translateY(-1px);
   }
 
   .avail-card__head {
@@ -658,38 +902,47 @@ const carsJson = JSON.stringify(cars.map(c => ({
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    margin-bottom: 14px;
+    margin-bottom: 16px;
+    padding-bottom: 14px;
+    border-bottom: 1px dashed rgba(15, 23, 42, 0.08);
   }
 
   .avail-card__head h3 {
-    font-size: 15px;
+    font-size: 16px;
     font-weight: 700;
     color: #0f172a;
-    margin-bottom: 2px;
+    margin-bottom: 3px;
+    letter-spacing: -0.2px;
   }
 
   .plate-tag {
-    font-size: 12px;
+    font-size: 11px;
     color: #94a3b8;
-    font-weight: 500;
+    font-weight: 600;
+    background: rgba(148, 163, 184, 0.1);
+    padding: 2px 8px;
+    border-radius: 6px;
+    display: inline-block;
+    letter-spacing: 0.5px;
   }
 
   .avail-count {
-    background: white;
-    border: 1px solid #e2e8f0;
+    background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+    border: 1px solid #fecaca;
     border-radius: 999px;
-    padding: 4px 10px;
+    padding: 5px 12px;
     font-size: 11px;
-    font-weight: 600;
-    color: #475569;
+    font-weight: 700;
+    color: #b91c1c;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.6px;
+    box-shadow: 0 1px 2px rgba(220, 38, 38, 0.08);
   }
 
   .avail-card__add {
     display: flex;
-    gap: 8px;
-    margin-bottom: 14px;
+    gap: 10px;
+    margin-bottom: 16px;
   }
 
   .avail-card__add--range {
@@ -699,38 +952,42 @@ const carsJson = JSON.stringify(cars.map(c => ({
   .mode-switch {
     display: inline-flex;
     background: white;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    padding: 3px;
-    margin-bottom: 12px;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 4px;
+    margin-bottom: 14px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
   }
 
   .mode-btn {
-    padding: 6px 14px;
+    padding: 7px 16px;
     background: transparent;
     border: none;
-    border-radius: 6px;
+    border-radius: 8px;
     font-size: 12px;
-    font-weight: 600;
+    font-weight: 700;
     color: #64748b;
     cursor: pointer;
     font-family: inherit;
-    transition: all 0.15s;
+    transition: all 0.2s ease;
+    letter-spacing: 0.3px;
   }
 
   .mode-btn:hover {
     color: #0f172a;
+    background: rgba(15, 23, 42, 0.04);
   }
 
   .mode-btn.is-active {
-    background: #0f172a;
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
     color: white;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.2);
   }
 
   .range-sep {
     color: #94a3b8;
-    font-weight: 600;
-    font-size: 14px;
+    font-weight: 700;
+    font-size: 16px;
     padding: 0 4px;
   }
 
@@ -738,186 +995,400 @@ const carsJson = JSON.stringify(cars.map(c => ({
     background: white;
     border: 1px solid #e2e8f0;
     border-radius: 999px;
-    padding: 4px 10px;
+    padding: 5px 12px;
     font-size: 11px;
-    font-weight: 600;
+    font-weight: 700;
     color: #475569;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.6px;
     white-space: nowrap;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
   }
 
   .range-days--invalid {
     color: #dc2626;
     border-color: #fecaca;
-    background: #fef2f2;
+    background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
   }
 
   .avail-add-range-block {
-    background: #dc2626 !important;
+    background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%) !important;
+    box-shadow: 0 2px 6px rgba(220, 38, 38, 0.25) !important;
   }
 
   .avail-add-range-block:hover {
-    background: #b91c1c !important;
+    background: linear-gradient(135deg, #b91c1c 0%, #991b1b 100%) !important;
+    box-shadow: 0 6px 14px rgba(220, 38, 38, 0.3) !important;
+    transform: translateY(-1px);
   }
 
   .avail-add-range-unblock {
-    background: #16a34a !important;
+    background: linear-gradient(135deg, #16a34a 0%, #15803d 100%) !important;
+    box-shadow: 0 2px 6px rgba(22, 163, 74, 0.25) !important;
   }
 
   .avail-add-range-unblock:hover {
-    background: #15803d !important;
+    background: linear-gradient(135deg, #15803d 0%, #166534 100%) !important;
+    box-shadow: 0 6px 14px rgba(22, 163, 74, 0.3) !important;
+    transform: translateY(-1px);
   }
 
   .avail-date {
     flex: 1;
-    padding: 9px 12px;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
+    padding: 11px 14px;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 10px;
     font-size: 14px;
+    font-weight: 500;
     font-family: inherit;
     background: white;
     color: #0f172a;
     outline: none;
-    transition: border-color 0.2s;
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .avail-date:hover {
+    border-color: #cbd5e1;
   }
 
   .avail-date:focus {
-    border-color: #0f172a;
+    border-color: #6366f1;
+    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.12);
   }
 
   .avail-add-btn {
-    padding: 9px 16px;
-    background: #0f172a;
+    padding: 11px 18px;
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
     color: white;
     border: none;
-    border-radius: 8px;
+    border-radius: 10px;
     font-size: 13px;
     font-weight: 600;
     cursor: pointer;
     font-family: inherit;
     white-space: nowrap;
-    transition: background 0.15s;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.2);
+    letter-spacing: 0.2px;
   }
 
   .avail-add-btn:hover {
-    background: #1e293b;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 14px rgba(15, 23, 42, 0.3);
+    background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+  }
+
+  .avail-add-btn:active {
+    transform: translateY(0);
   }
 
   .avail-add-btn:disabled {
-    background: #94a3b8;
+    background: #cbd5e1;
     cursor: not-allowed;
-  }
-
-  .avail-card__list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    min-height: 36px;
-  }
-
-  .date-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    padding: 6px 8px 6px 12px;
-    background: white;
-    border: 1px solid #fecaca;
-    border-radius: 999px;
-    font-size: 13px;
-    color: #9f1239;
-    transition: opacity 0.2s, transform 0.2s, background 0.15s;
-  }
-
-  .date-chip:hover {
-    background: #fef2f2;
-  }
-
-  .date-chip__label {
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-  }
-
-  .date-chip__sub {
-    font-size: 11px;
-    color: #b45309;
-    font-weight: 500;
-  }
-
-  .date-chip__remove {
-    width: 22px;
-    height: 22px;
-    border-radius: 50%;
-    border: none;
-    background: #fee2e2;
-    color: #9f1239;
-    font-size: 16px;
-    line-height: 1;
-    font-weight: 700;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    transition: background 0.15s, color 0.15s;
-  }
-
-  .date-chip__remove:hover {
-    background: #dc2626;
-    color: white;
+    transform: none;
+    box-shadow: none;
   }
 
   .empty-state {
     color: #94a3b8;
     font-size: 13px;
     font-style: italic;
-    padding: 8px 0;
+    padding: 8px 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .empty-state::before {
+    content: "○";
+    font-size: 16px;
+    color: #cbd5e1;
+  }
+
+  .avail-calendar-wrap {
+    margin-top: 16px;
+  }
+
+  .avail-calendar-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: #475569;
+    margin-bottom: 10px;
+  }
+
+  .avail-calendar-label svg {
+    color: #6366f1;
+  }
+
+  .avail-calendar {
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    border-radius: 20px;
+    padding: 18px 20px;
+    background:
+      radial-gradient(120% 80% at 0% 0%, rgba(99, 102, 241, 0.06) 0%, transparent 60%),
+      radial-gradient(120% 80% at 100% 100%, rgba(16, 185, 129, 0.06) 0%, transparent 60%),
+      linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.6) inset,
+      0 10px 30px rgba(15, 23, 42, 0.06),
+      0 2px 6px rgba(15, 23, 42, 0.04);
+  }
+
+  .calendar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;
+    padding: 4px 4px 12px;
+    border-bottom: 1px dashed rgba(15, 23, 42, 0.08);
+  }
+
+  .cal-title {
+    flex: 1;
+    font-weight: 800;
+    color: #0f172a;
+    font-size: 16px;
+    text-align: center;
+    letter-spacing: -0.2px;
+    text-transform: capitalize;
+  }
+
+  .cal-nav {
+    background: white;
+    border: 1px solid #e2e8f0;
+    color: #0f172a;
+    width: 36px;
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 700;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);
+    font-family: inherit;
+  }
+
+  .cal-nav:hover {
+    background: #0f172a;
+    color: white;
+    border-color: #0f172a;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 14px rgba(15, 23, 42, 0.12);
+  }
+
+  .calendar-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 4px;
+  }
+
+  .calendar-table thead th {
+    font-size: 10px;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 800;
+    padding: 4px 0 8px;
+    text-align: center;
+  }
+
+  .calendar-table tbody td {
+    padding: 0;
+    text-align: center;
+    width: 14.28%;
+  }
+
+  .calendar-cell {
+    min-height: 44px;
+  }
+
+  .calendar-cell.empty {
+    background: transparent;
+  }
+
+  .day-btn {
+    width: 100%;
+    height: 40px;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    background: white;
+    color: #0f172a;
+    font-weight: 600;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.2s ease, background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+    font-family: inherit;
+  }
+
+  .day-btn.today {
+    border-color: #6366f1;
+    color: #4f46e5;
+    background: #eef2ff;
+  }
+
+  .day-btn.past {
+    color: #cbd5e1;
+    background: #f8fafc;
+    cursor: not-allowed;
+  }
+
+  .day-btn.unavailable {
+    background: repeating-linear-gradient(
+      45deg,
+      #fef2f2,
+      #fef2f2 6px,
+      #fee2e2 6px,
+      #fee2e2 12px
+    );
+    color: #9f1239;
+    border-color: #fecaca;
+    cursor: not-allowed;
+    text-decoration: line-through;
+    text-decoration-thickness: 1px;
+  }
+
+  .calendar-legend {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px dashed rgba(15, 23, 42, 0.08);
+    font-size: 11px;
+    color: #64748b;
+  }
+
+  .calendar-legend .dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+    margin-right: 6px;
+    vertical-align: middle;
+    border: 1px solid #e2e8f0;
+  }
+
+  .calendar-legend .dot--available {
+    background: white;
+    border-color: #e2e8f0;
+  }
+
+  .calendar-legend .dot--selected {
+    background: #eef2ff;
+    border-color: #6366f1;
+  }
+
+  .calendar-legend .dot--unavailable {
+    background: repeating-linear-gradient(
+      45deg,
+      #fef2f2,
+      #fef2f2 3px,
+      #fee2e2 3px,
+      #fee2e2 6px
+    );
+    border-color: #fecaca;
   }
 
   .toast {
     position: fixed;
-    bottom: 24px;
+    bottom: 28px;
     left: 50%;
     transform: translateX(-50%);
-    padding: 12px 20px;
-    border-radius: 10px;
+    padding: 14px 24px;
+    border-radius: 14px;
     font-size: 14px;
-    font-weight: 500;
+    font-weight: 600;
     color: white;
     z-index: 2000;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-    animation: toastIn 0.2s ease;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25), 0 8px 16px rgba(0, 0, 0, 0.15);
+    animation: toastIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
   }
 
   .toast--ok {
-    background: #16a34a;
+    background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
   }
 
   .toast--err {
-    background: #dc2626;
+    background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
   }
 
   @keyframes toastIn {
-    from { opacity: 0; transform: translate(-50%, 12px); }
-    to   { opacity: 1; transform: translate(-50%, 0); }
+    from { opacity: 0; transform: translate(-50%, 20px) scale(0.95); }
+    to   { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
   }
 
   @media (max-width: 768px) {
     .admin-page {
-      padding: 32px 16px;
+      padding: 32px 16px 60px;
     }
 
     .admin-card {
-      padding: 24px 20px;
+      padding: 26px 20px;
+      border-radius: 18px;
     }
 
-    .cars-header,
+    .admin-header h1 {
+      font-size: 28px;
+    }
+
+    .cars-header {
+      display: none;
+    }
+
     .car-row {
       grid-template-columns: 1fr;
-      gap: 8px;
+      gap: 12px;
+      padding: 18px 20px;
+      background: white;
+      border-radius: 14px;
+      margin-bottom: 10px;
+      border: 1px solid rgba(15, 23, 42, 0.06);
+      box-shadow: 0 2px 6px rgba(15, 23, 42, 0.03);
+    }
+
+    .car-row:hover {
+      background: white;
     }
 
     .car-cell--action {
       text-align: left;
+      justify-content: flex-start;
+    }
+
+    .price-input {
+      width: 100%;
+    }
+
+    .cars-table {
+      background: transparent;
+      border: none;
+      box-shadow: none;
     }
   }
 </style>

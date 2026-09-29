@@ -3,12 +3,12 @@ import logoSvg from "../assets/file-1.svg";
 import { Image } from "astro:assets";
 ---
 
-<header>
+  <header role="banner">
   <div class="header-inner">
-    <a href="/" class="logo">
+    <a href="/" class="logo" aria-label="5J & Associates - Home">
       <Image
         src={logoSvg}
-        alt="5J & Associates"
+        alt="5J & Associates - Car rental in Grenada"
         width="300"
         height="300"
         loading="eager"
@@ -16,17 +16,16 @@ import { Image } from "astro:assets";
       />
     </a>
     <div class="header-banner">
-      <h1>Premium Car Rental</h1>
+      <h1>Premium Car Rental in Grenada</h1>
       <p>
-        Suzuki Ignis & Nissan Cube. Reliable vehicles, transparent pricing,
-        exceptional service.
+        Suzuki Ignis &amp; Nissan Cube. Reliable vehicles, transparent pricing.
       </p>
     </div>
     <div class="header-actions" id="headerActions">
-      <a href="/admin" class="admin-link" title="Admin Panel" style="display:none">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+      <a href="/admin" class="admin-link" aria-label="Admin Panel" title="Admin Panel" style="display:none">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
       </a>
-      <button id="loginBtn" class="auth-btn">Log In</button>
+      <button id="loginBtn" class="auth-btn" aria-label="Log in to your account">Log In</button>
       <span id="userMenu" class="user-menu" style="display:none">
         <span id="userName" class="user-name"></span>
         <button id="logoutBtn" class="auth-btn logout">Logout</button>
